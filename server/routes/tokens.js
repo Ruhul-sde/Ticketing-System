@@ -1,17 +1,53 @@
-
 import express from 'express';
 import Token from '../models/Token.js';
-import User from '../models/User.js';
 import { authenticate, authorize } from '../middleware/auth.js';
+import Department from '../models/Department.js';
+import { generateTokenNumber } from '../utils/tokenGenerator.js'; // Imported the token generator utility
 import { sendEmailNotification } from '../utils/email.js';
+import User from '../models/User.js'; // Assuming User model is needed for fetching admins
 
 const router = express.Router();
 
 router.post('/', authenticate, async (req, res) => {
   try {
     const { title, description, priority, department, category, subCategory, attachments, reason } = req.body;
-    
+
+    // Validate required fields
+    if (!title || !description) {
+      return res.status(400).json({ message: 'Title and description are required' });
+    }
+
+    // Generate token number: TYYMMDDIT001
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    // Get department initial (default to 'IT' for Information Technology or general if no department)
+    let deptInitial = 'G'; // Default to 'G' for General
+    if (department) {
+      const dept = await Department.findById(department);
+      if (dept) {
+        // Using the first letter of the department name, or a default if name is empty
+        deptInitial = dept.name ? dept.name.charAt(0).toUpperCase() : 'G';
+      }
+    }
+
+    // Find the count of tokens created today for this department to ensure uniqueness
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
+    const todayCount = await Token.countDocuments({
+      createdAt: { $gte: todayStart, $lt: todayEnd },
+      department: department || null // Count tokens for the specific department or all if department is null
+    });
+
+    const sequenceNumber = String(todayCount + 1).padStart(3, '0');
+    const tokenNumber = `T${year}${month}${day}${deptInitial}${sequenceNumber}`; // Formatted token number
+
     const token = new Token({
+      tokenNumber,
       title,
       description,
       priority,
@@ -24,51 +60,53 @@ router.post('/', authenticate, async (req, res) => {
     });
 
     await token.save();
-    await token.populate(['createdBy', 'department']);
+    await token.populate(['createdBy', 'department']); // Populate related fields
 
+    // Notify admins about the new token
     const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } });
     for (const admin of admins) {
-      await sendEmailNotification(admin.email, token);
+      await sendEmailNotification(admin.email, token); // Send email notification to admins
     }
 
     res.status(201).json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.get('/', authenticate, async (req, res) => {
   try {
     let query = {};
-    
+
+    // Filter tokens based on user role
     if (req.user.role === 'user') {
-      query.createdBy = req.user._id;
+      query.createdBy = req.user._id; // User sees their own tokens
     } else if (req.user.role === 'admin') {
       if (req.user.department) {
-        query.department = req.user.department._id;
+        query.department = req.user.department; // Admin sees tokens for their department
       }
     }
 
     const tokens = await Token.find(query)
-      .populate(['createdBy', 'assignedTo', 'solvedBy', 'department'])
-      .sort({ createdAt: -1 });
-    
+      .populate(['createdBy', 'assignedTo', 'solvedBy', 'department']) // Populate related user and department info
+      .sort({ createdAt: -1 }); // Sort by creation date descending
+
     res.json(tokens);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.patch('/:id/solve', authenticate, authorize('admin', 'superadmin'), async (req, res) => {
   try {
     const token = await Token.findById(req.params.id);
-    
+
     if (!token) {
-      return res.status(404).json({ message: 'Token not found' });
+      return res.status(404).json({ message: 'Token not found' }); // Token not found error
     }
 
     const solvedAt = new Date();
-    const timeToSolve = Math.floor((solvedAt - token.createdAt) / 1000 / 60);
+    const timeToSolve = Math.floor((solvedAt - token.createdAt) / 1000 / 60); // Calculate time to solve in minutes
 
     token.status = 'solved';
     token.solvedBy = req.user._id;
@@ -76,34 +114,34 @@ router.patch('/:id/solve', authenticate, authorize('admin', 'superadmin'), async
     token.timeToSolve = timeToSolve;
 
     await token.save();
-    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']);
+    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']); // Repopulate after save
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.patch('/:id/assign', authenticate, authorize('admin', 'superadmin'), async (req, res) => {
   try {
     const { assignedTo, department } = req.body;
-    
+
     const token = await Token.findByIdAndUpdate(
       req.params.id,
-      { assignedTo, department, status: 'assigned' },
-      { new: true }
-    ).populate(['createdBy', 'assignedTo', 'solvedBy', 'department']);
+      { assignedTo, department, status: 'assigned' }, // Update assignment and status
+      { new: true } // Return the updated document
+    ).populate(['createdBy', 'assignedTo', 'solvedBy', 'department']); // Populate related fields
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.patch('/:id/update', authenticate, authorize('admin', 'superadmin'), async (req, res) => {
   try {
     const { status, priority, assignedTo, expectedResolutionDate, actualResolutionDate } = req.body;
-    
+
     const updateData = {};
     if (status) updateData.status = status;
     if (priority) updateData.priority = priority;
@@ -111,10 +149,11 @@ router.patch('/:id/update', authenticate, authorize('admin', 'superadmin'), asyn
     if (expectedResolutionDate) updateData.expectedResolutionDate = expectedResolutionDate;
     if (actualResolutionDate) updateData.actualResolutionDate = actualResolutionDate;
 
+    // If status is closed or resolved, set solvedBy and calculate timeToSolve
     if (status === 'closed' || status === 'resolved') {
       updateData.solvedBy = req.user._id;
       updateData.solvedAt = new Date();
-      const token = await Token.findById(req.params.id);
+      const token = await Token.findById(req.params.id); // Fetch token to calculate time difference
       if (token) {
         updateData.timeToSolve = Math.floor((new Date() - token.createdAt) / 1000 / 60);
       }
@@ -123,22 +162,22 @@ router.patch('/:id/update', authenticate, authorize('admin', 'superadmin'), asyn
     const token = await Token.findByIdAndUpdate(
       req.params.id,
       updateData,
-      { new: true }
-    ).populate(['createdBy', 'assignedTo', 'solvedBy', 'department']);
+      { new: true } // Return the updated document
+    ).populate(['createdBy', 'assignedTo', 'solvedBy', 'department']); // Populate related fields
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.post('/:id/remarks', authenticate, authorize('admin', 'superadmin'), async (req, res) => {
   try {
     const { text } = req.body;
-    
+
     const token = await Token.findById(req.params.id);
     if (!token) {
-      return res.status(404).json({ message: 'Token not found' });
+      return res.status(404).json({ message: 'Token not found' }); // Token not found error
     }
 
     token.remarks.push({
@@ -148,21 +187,21 @@ router.post('/:id/remarks', authenticate, authorize('admin', 'superadmin'), asyn
     });
 
     await token.save();
-    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department', 'remarks.addedBy']);
+    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department', 'remarks.addedBy']); // Repopulate with remarks
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.post('/:id/attachments', authenticate, authorize('admin', 'superadmin'), async (req, res) => {
   try {
     const { filename, url } = req.body;
-    
+
     const token = await Token.findById(req.params.id);
     if (!token) {
-      return res.status(404).json({ message: 'Token not found' });
+      return res.status(404).json({ message: 'Token not found' }); // Token not found error
     }
 
     token.adminAttachments.push({
@@ -173,28 +212,30 @@ router.post('/:id/attachments', authenticate, authorize('admin', 'superadmin'), 
     });
 
     await token.save();
-    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']);
+    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']); // Repopulate after save
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.patch('/:id', authenticate, async (req, res) => {
   try {
     const token = await Token.findById(req.params.id);
-    
+
     if (!token) {
-      return res.status(404).json({ message: 'Token not found' });
+      return res.status(404).json({ message: 'Token not found' }); // Token not found error
     }
 
+    // Authorization check: only the creator can edit their token
     if (token.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to edit this token' });
     }
 
     const { title, description, priority, category, subCategory, reason, attachments } = req.body;
-    
+
+    // Update token fields if provided
     if (title) token.title = title;
     if (description) token.description = description;
     if (priority) token.priority = priority;
@@ -204,24 +245,25 @@ router.patch('/:id', authenticate, async (req, res) => {
     if (attachments) token.attachments = attachments;
 
     await token.save();
-    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']);
+    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']); // Repopulate after save
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
 router.post('/:id/feedback', authenticate, async (req, res) => {
   try {
     const { rating, comment } = req.body;
-    
+
     const token = await Token.findById(req.params.id);
-    
+
     if (!token) {
-      return res.status(404).json({ message: 'Token not found' });
+      return res.status(404).json({ message: 'Token not found' }); // Token not found error
     }
 
+    // Authorization check: only the creator can provide feedback
     if (token.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to provide feedback for this token' });
     }
@@ -233,12 +275,12 @@ router.post('/:id/feedback', authenticate, async (req, res) => {
     };
 
     await token.save();
-    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']);
+    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']); // Repopulate after save
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
 
-export default router;
+export default router; // Export the router

@@ -1,7 +1,11 @@
-
 import mongoose from 'mongoose';
 
 const tokenSchema = new mongoose.Schema({
+  tokenNumber: {
+    type: String,
+    unique: true,
+    required: true
+  },
   title: {
     type: String,
     required: true
@@ -11,10 +15,6 @@ const tokenSchema = new mongoose.Schema({
     required: true
   },
   category: {
-    type: String,
-    required: true
-  },
-  subCategory: {
     type: String
   },
   attachments: [{

@@ -1,7 +1,7 @@
 
 import mongoose from 'mongoose';
 
-const departmentSchema = new mongoose.Schema({
+const categorySchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
@@ -10,7 +10,7 @@ const departmentSchema = new mongoose.Schema({
   description: {
     type: String
   },
-  categories: [{
+  subCategories: [{
     type: String
   }],
   createdAt: {
@@ -19,6 +19,4 @@ const departmentSchema = new mongoose.Schema({
   }
 });
 
-const Department = mongoose.model('Department', departmentSchema);
-
-export default Department;
+export default mongoose.model('Category', categorySchema);

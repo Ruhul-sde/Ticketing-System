@@ -316,10 +316,19 @@ const AdminDashboard = () => {
                               {token.status.toUpperCase()}
                             </span>
                           </div>
+                          <div className="mb-2">
+                            <span className="bg-gradient-to-r from-[#ED1B2F]/20 to-[#455185]/20 text-white px-3 py-1 rounded-lg text-sm font-mono font-bold border border-white/20">
+                              #{token.tokenNumber || token._id.slice(-8)}
+                            </span>
+                          </div>
                           <div className="flex flex-wrap gap-2 text-sm text-white/60 mb-3">
                             <span>👤 {token.createdBy?.name}</span>
                             <span>•</span>
-                            <span>📅 {new Date(token.createdAt).toLocaleDateString()}</span>
+                            <span>📧 {token.createdBy?.email}</span>
+                            <span>•</span>
+                            <span>🏢 {token.createdBy?.companyName || 'N/A'}</span>
+                            <span>•</span>
+                            <span>📅 {new Date(token.createdAt).toLocaleString()}</span>
                             {token.category && (
                               <>
                                 <span>•</span>
@@ -421,12 +430,25 @@ const AdminDashboard = () => {
               <div className="p-6 space-y-6">
                 {/* Token Info */}
                 <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                  <h4 className="text-xl font-bold text-white mb-4">{selectedToken.title}</h4>
+                  <div className="flex items-center gap-3 mb-4">
+                    <h4 className="text-xl font-bold text-white">{selectedToken.title}</h4>
+                    <span className="bg-gradient-to-r from-[#ED1B2F]/20 to-[#455185]/20 text-white px-3 py-1 rounded-lg text-sm font-mono font-bold border border-white/20">
+                      #{selectedToken.tokenNumber || selectedToken._id.slice(-8)}
+                    </span>
+                  </div>
                   <p className="text-white/80 mb-4">{selectedToken.description}</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-white/60">Created by:</span>
                       <div className="text-white font-semibold">{selectedToken.createdBy?.name}</div>
+                    </div>
+                    <div>
+                      <span className="text-white/60">Email:</span>
+                      <div className="text-white font-semibold">{selectedToken.createdBy?.email}</div>
+                    </div>
+                    <div>
+                      <span className="text-white/60">Company:</span>
+                      <div className="text-white font-semibold">{selectedToken.createdBy?.companyName || 'N/A'}</div>
                     </div>
                     <div>
                       <span className="text-white/60">Department:</span>
@@ -438,7 +460,7 @@ const AdminDashboard = () => {
                     </div>
                     <div>
                       <span className="text-white/60">Created:</span>
-                      <div className="text-white font-semibold">{new Date(selectedToken.createdAt).toLocaleDateString()}</div>
+                      <div className="text-white font-semibold">{new Date(selectedToken.createdAt).toLocaleString()}</div>
                     </div>
                   </div>
                 </div>

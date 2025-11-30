@@ -15,11 +15,22 @@ import tokenRoutes from './routes/tokens.js';
 import userRoutes from './routes/users.js';
 import departmentRoutes from './routes/departments.js';
 import dashboardRoutes from './routes/dashboard.js';
+import categoriesRouter from './routes/categories.js';
+import adminProfilesRouter from './routes/adminProfiles.js';
 
 dotenv.config();
 
+// Validate required environment variables
+const requiredEnvVars = ['JWT_SECRET', 'MONGODB_URI'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error(chalk.red('✗ Missing required environment variables:'), missingEnvVars.join(', '));
+  console.error(chalk.yellow('⚠ Please set these in your .env file'));
+}
+
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Security middleware
@@ -78,7 +89,11 @@ if (NODE_ENV !== 'test') {
 // MongoDB connection with enhanced logging
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/token-system', {
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI is not defined in environment variables');
+    }
+    
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
@@ -110,11 +125,15 @@ const connectDB = async () => {
 };
 
 // Routes with enhanced logging
+console.log(chalk.cyan('📝 Registering API routes...'));
 app.use('/api/auth', authRoutes);
 app.use('/api/tokens', tokenRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/categories', categoriesRouter);
+app.use('/api/admin-profiles', adminProfilesRouter);
+console.log(chalk.green('✓') + ' All routes registered successfully');
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -138,7 +157,9 @@ app.get('/api', (req, res) => {
       tokens: '/api/tokens',
       users: '/api/users',
       departments: '/api/departments',
-      dashboard: '/api/dashboard'
+      dashboard: '/api/dashboard',
+      categories: '/api/categories',
+      adminProfiles: '/api/admin-profiles'
     },
     documentation: 'Add your API docs URL here'
   });
@@ -156,7 +177,7 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((err, req, res, next) => {
   console.error(chalk.red('✗ Error:'), err.stack);
-  
+
   res.status(err.status || 500).json({
     success: false,
     message: NODE_ENV === 'production' ? 'Something went wrong!' : err.message,
@@ -167,10 +188,10 @@ app.use((err, req, res, next) => {
 // Graceful shutdown
 const gracefulShutdown = (signal) => {
   console.log(chalk.yellow(`\n⚠ Received ${signal}, shutting down gracefully...`));
-  
+
   server.close(() => {
     console.log(chalk.green('✓ HTTP server closed'));
-    
+
     mongoose.connection.close(false, () => {
       console.log(chalk.green('✓ MongoDB connection closed'));
       process.exit(0);
@@ -192,9 +213,9 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.cyan('\n🚀 Token System Server Starting...'));
   console.log(chalk.cyan('═'.repeat(50)));
-  
+
   await connectDB();
-  
+
   console.log(chalk.cyan('═'.repeat(50)));
   console.log(chalk.green('✓') + ` Server is running in ${chalk.yellow(NODE_ENV)} mode`);
   console.log(chalk.blue('📍') + ` Local:    ${chalk.underline.white(`http://localhost:${PORT}`)}`);

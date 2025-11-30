@@ -11,6 +11,16 @@ router.post('/register', async (req, res) => {
   try {
     const { email, password, name, employeeCode, role } = req.body;
     
+    // Validate required fields
+    if (!email || !password || !name) {
+      return res.status(400).json({ message: 'Email, password, and name are required' });
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
@@ -23,7 +33,7 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
     const user = new User({
       email,
       password: hashedPassword,
@@ -53,9 +63,14 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not defined');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -139,6 +154,34 @@ router.post('/reset-password', async (req, res) => {
     if (error.name === 'TokenExpiredError') {
       return res.status(400).json({ message: 'Reset token has expired' });
     }
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/change-password', authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
