@@ -818,6 +818,7 @@ const SuperAdminDashboard = () => {
                 <th className="text-left py-3 px-4">Title</th>
                 <th className="text-left py-3 px-4">Creator</th>
                 <th className="text-left py-3 px-4">Department</th>
+                <th className="text-left py-3 px-4">Assigned To</th>
                 <th className="text-left py-3 px-4">Status</th>
                 <th className="text-left py-3 px-4">Priority</th>
                 <th className="text-left py-3 px-4">Created</th>
@@ -844,6 +845,16 @@ const SuperAdminDashboard = () => {
                     <span className="text-white/70 text-sm">
                       {token.department?.name || 'Unassigned'}
                     </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    {token.assignedTo ? (
+                      <div>
+                        <div className="text-white/90 font-medium">{token.assignedTo.name}</div>
+                        <div className="text-white/50 text-xs">{token.assignedTo.email}</div>
+                      </div>
+                    ) : (
+                      <span className="text-white/40 text-sm">Not assigned</span>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs ${

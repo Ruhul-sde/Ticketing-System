@@ -57,14 +57,18 @@ const AdminDashboard = () => {
 
   const fetchData = async () => {
     try {
+      console.log('Fetching tokens for admin:', user?.email);
       const [tokensRes, usersRes] = await Promise.all([
         axios.get(`${API_URL}/tokens`),
         axios.get(`${API_URL}/users`)
       ]);
+      console.log('Received tokens:', tokensRes.data.length);
+      console.log('Token data:', tokensRes.data);
       setTokens(tokensRes.data);
       setUsers(usersRes.data.filter(u => u.role === 'admin' && u.department));
     } catch (error) {
       console.error('Error fetching data:', error);
+      console.error('Error details:', error.response?.data);
     }
   };
 

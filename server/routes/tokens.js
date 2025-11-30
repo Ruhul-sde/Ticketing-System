@@ -48,7 +48,7 @@ router.post('/', authenticate, async (req, res) => {
       if (!deptExists) {
         return res.status(400).json({ message: 'Invalid department' });
       }
-      
+
       // Validate category exists in department if provided
       if (category) {
         const categoryExists = deptExists.categories.some(cat => cat.name === category);
@@ -87,12 +87,16 @@ router.post('/', authenticate, async (req, res) => {
     const sequenceNumber = String(todayCount + 1).padStart(3, '0');
     const tokenNumber = `T${year}${month}${day}${deptInitial}${sequenceNumber}`; // Formatted token number
 
+    console.log('===== TOKEN CREATION DEBUG =====');
+    console.log('Creating token with department:', department);
+    console.log('Department name:', deptExists?.name);
+
     const token = new Token({
       tokenNumber,
       title,
       description,
       priority,
-      department,
+      department: department ? mongoose.Types.ObjectId(department) : null,
       category,
       subCategory,
       attachments,
@@ -102,6 +106,15 @@ router.post('/', authenticate, async (req, res) => {
 
     await token.save();
     await token.populate(['createdBy', 'department']); // Populate related fields
+
+    console.log('Token created successfully:', {
+      id: token._id.toString().slice(-6),
+      tokenNumber: token.tokenNumber,
+      departmentId: token.department?._id?.toString().slice(-6) || 'none',
+      departmentName: token.department?.name || 'Unassigned',
+      createdBy: token.createdBy?.name
+    });
+    console.log('================================');
 
     // Notify admins about the new token
     const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } });
@@ -128,7 +141,7 @@ router.get('/:id', authenticate, validateObjectId, async (req, res) => {
     const isCreator = token.createdBy._id.toString() === req.user._id.toString();
     const isAssigned = token.assignedTo && token.assignedTo._id.toString() === req.user._id.toString();
     const isAdmin = ['admin', 'superadmin'].includes(req.user.role);
-    const isDepartmentAdmin = req.user.role === 'admin' && req.user.department && 
+    const isDepartmentAdmin = req.user.role === 'admin' && req.user.department &&
                               token.department && req.user.department.toString() === token.department._id.toString();
 
     if (!isCreator && !isAssigned && !isAdmin && !isDepartmentAdmin) {
@@ -150,16 +163,49 @@ router.get('/', authenticate, async (req, res) => {
       query.createdBy = req.user._id; // User sees their own tokens
     } else if (req.user.role === 'admin') {
       if (req.user.department) {
-        query.department = req.user.department; // Admin sees tokens for their department
+        // Admin sees tokens for their department
+        // Extract the department ID and ensure it's an ObjectId
+        const deptId = req.user.department._id || req.user.department;
+        query.department = deptId;
       }
     }
+    // Superadmin sees all tokens (no filter applied)
+
+    console.log('===== TOKEN FETCH DEBUG =====');
+    console.log('User:', req.user.email);
+    console.log('User Role:', req.user.role);
+    console.log('User Department Name:', req.user.department?.name);
+    console.log('User Department ID:', req.user.department?._id?.toString() || req.user.department?.toString());
+    console.log('Query Department:', query.department?.toString());
+    console.log('Full Query:', JSON.stringify(query));
 
     const tokens = await Token.find(query)
       .populate(['createdBy', 'assignedTo', 'solvedBy', 'department']) // Populate related user and department info
       .sort({ createdAt: -1 }); // Sort by creation date descending
 
+    console.log(`Found ${tokens.length} tokens for ${req.user.role}`);
+    if (tokens.length > 0) {
+      console.log('Token Details:');
+      tokens.forEach(t => {
+        console.log(`  - ${t.tokenNumber}: Dept=${t.department?.name || 'None'} (${t.department?._id?.toString() || 'N/A'}), Status=${t.status}`);
+      });
+    } else {
+      console.log('⚠️ No tokens found for this admin. Debugging...');
+      const allTokens = await Token.find({}).populate('department');
+      console.log(`Total tokens in DB: ${allTokens.length}`);
+      console.log('Expected Department ID:', query.department?.toString());
+      console.log('Tokens by department:');
+      allTokens.forEach(t => {
+        const tokenDeptId = t.department?._id?.toString() || 'N/A';
+        const match = tokenDeptId === (query.department?._id?.toString() || query.department?.toString()) ? '✓ MATCH' : '✗ NO MATCH';
+        console.log(`  - ${t.tokenNumber}: Dept=${t.department?.name || 'None'} (${tokenDeptId}) ${match}`);
+      });
+    }
+    console.log('=============================');
+
     res.json(tokens);
   } catch (error) {
+    console.error('Error fetching tokens:', error);
     res.status(500).json({ message: error.message }); // Generic error handling
   }
 });
