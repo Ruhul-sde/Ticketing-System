@@ -67,84 +67,128 @@ const Navbar = () => {
 
   const getRoleBadgeColor = (role) => {
     switch(role) {
-      case 'superadmin': return 'bg-purple-500/20 text-purple-400 border-purple-500/50';
-      case 'admin': return 'bg-blue-500/20 text-blue-400 border-blue-500/50';
-      default: return 'bg-green-500/20 text-green-400 border-green-500/50';
+      case 'superadmin': return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white';
+      case 'admin': return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
+      default: return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white';
     }
   };
 
   return (
     <>
-      <nav className="bg-white/10 backdrop-blur-xl border-b border-white/20 sticky top-0 z-50 shadow-lg">
-        <div className="container mx-auto px-4 py-3">
+      <nav className="bg-gradient-to-r from-gray-900 via-[#1a1f3a] to-gray-900 border-b border-white/10 sticky top-0 z-50 shadow-2xl">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             {/* Logo and Brand */}
-            <div className="flex items-center gap-4">
-              <img src={logo} alt="Logo" className="h-12 w-12 object-contain" />
+            <div className="flex items-center gap-4 group cursor-pointer" onClick={() => navigate('/dashboard')}>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-[#ED1B2F] to-[#455185] rounded-2xl blur-xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                <div className="relative bg-white/95 backdrop-blur-sm p-3 rounded-2xl shadow-xl border-2 border-white/20 group-hover:scale-110 transition-transform duration-300">
+                  <img src={logo} alt="Logo" className="h-10 w-10 object-contain" />
+                </div>
+              </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#ED1B2F] to-[#455185] bg-clip-text text-transparent">
-                  Token System
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#ED1B2F] via-pink-500 to-[#455185] bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">
+                  TICKETING SYSTEM
                 </h1>
-                <p className="text-white/60 text-xs">Support Management Platform</p>
+                <p className="text-white/70 text-xs font-medium tracking-wide">Support Management Platform</p>
               </div>
             </div>
             
             {/* User Profile Section */}
-            <div className="flex items-center gap-4">
-              <div className="hidden md:block text-right">
-                <p className="text-white font-semibold">{user.name}</p>
-                <p className="text-white/60 text-sm">{user.email}</p>
-              </div>
+            <div className="flex items-center gap-6">
+              {/* User Info Card */}
+              <div className="hidden md:flex items-center gap-4 bg-white/5 backdrop-blur-xl rounded-2xl px-5 py-3 border border-white/10 shadow-lg">
+                <div className="text-right">
+                  <p className="text-white font-semibold text-sm">{user.name}</p>
+                  <p className="text-white/60 text-xs">{user.email}</p>
+                </div>
 
-              {/* Role Badge */}
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold border uppercase ${getRoleBadgeColor(user.role)}`}>
-                {user.role}
-              </span>
+                {/* Role Badge */}
+                <span className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-lg uppercase tracking-wide ${getRoleBadgeColor(user.role)}`}>
+                  {user.role}
+                </span>
+              </div>
 
               {/* Profile Menu */}
               <div className="relative">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ED1B2F] to-[#455185] flex items-center justify-center text-white font-bold hover:scale-110 transition-transform"
+                  className="relative group"
                 >
-                  {user.name?.charAt(0).toUpperCase()}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#ED1B2F] to-[#455185] rounded-full blur-md opacity-75 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-[#ED1B2F] to-[#455185] flex items-center justify-center text-white font-bold text-lg shadow-xl border-2 border-white/20 group-hover:scale-110 transition-transform duration-300">
+                    {user.name?.charAt(0).toUpperCase()}
+                  </div>
                 </button>
 
                 {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-[#1a1f3a] border border-white/20 rounded-xl shadow-2xl overflow-hidden">
-                    <div className="p-4 border-b border-white/10">
-                      <p className="text-white font-semibold truncate">{user.name}</p>
-                      <p className="text-white/60 text-xs truncate">{user.email}</p>
-                      {user.employeeCode && (
-                        <p className="text-white/50 text-xs mt-1">ID: {user.employeeCode}</p>
-                      )}
-                    </div>
-                    <div className="p-2">
-                      {(user.role === 'admin' || user.role === 'superadmin') && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowProfileMenu(false)}
+                    ></div>
+                    
+                    {/* Dropdown Menu */}
+                    <div className="absolute right-0 mt-3 w-72 bg-gradient-to-br from-gray-900 via-[#1a1f3a] to-gray-900 border border-white/20 rounded-2xl shadow-2xl overflow-hidden z-50 animate-fadeIn">
+                      <div className="p-5 border-b border-white/10 bg-gradient-to-r from-[#ED1B2F]/10 to-[#455185]/10">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#ED1B2F] to-[#455185] flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                            {user.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-bold truncate text-lg">{user.name}</p>
+                            <p className="text-white/70 text-xs truncate">{user.email}</p>
+                          </div>
+                        </div>
+                        {user.employeeCode && (
+                          <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+                            <span className="text-white/50 text-xs">Employee ID:</span>
+                            <span className="text-white font-mono text-xs">{user.employeeCode}</span>
+                          </div>
+                        )}
+                        <div className="mt-3">
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg uppercase tracking-wide ${getRoleBadgeColor(user.role)}`}>
+                            {user.role}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-2">
+                        {(user.role === 'admin' || user.role === 'superadmin') && (
+                          <button
+                            onClick={() => {
+                              setShowPasswordModal(true);
+                              setShowProfileMenu(false);
+                            }}
+                            className="w-full text-left px-4 py-3 text-white/90 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 rounded-xl transition-all flex items-center gap-3 group"
+                          >
+                            <span className="text-xl group-hover:scale-110 transition-transform">🔒</span>
+                            <span className="font-medium">Change Password</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
-                            setShowPasswordModal(true);
+                            navigate('/dashboard');
                             setShowProfileMenu(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-white/80 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
+                          className="w-full text-left px-4 py-3 text-white/90 hover:bg-gradient-to-r hover:from-white/10 hover:to-white/5 rounded-xl transition-all flex items-center gap-3 group"
                         >
-                          🔒 Change Password
+                          <span className="text-xl group-hover:scale-110 transition-transform">🏠</span>
+                          <span className="font-medium">Dashboard</span>
                         </button>
-                      )}
-                      <button
-                        onClick={() => navigate('/dashboard')}
-                        className="w-full text-left px-4 py-2 text-white/80 hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        🏠 Dashboard
-                      </button>
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        🚪 Logout
-                      </button>
+                        <button
+                          onClick={() => {
+                            handleLogout();
+                            setShowProfileMenu(false);
+                          }}
+                          className="w-full text-left px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all flex items-center gap-3 group"
+                        >
+                          <span className="text-xl group-hover:scale-110 transition-transform">🚪</span>
+                          <span className="font-medium">Logout</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -154,50 +198,60 @@ const Navbar = () => {
 
       {/* Password Change Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowPasswordModal(false)}>
-          <div className="bg-gradient-to-br from-[#455185] to-[#2a3357] rounded-2xl p-8 max-w-md w-full border border-white/20" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-2xl font-bold text-white mb-6">Change Password</h3>
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={() => setShowPasswordModal(false)}>
+          <div className="bg-gradient-to-br from-gray-900 via-[#1a1f3a] to-gray-900 rounded-3xl p-8 max-w-md w-full border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#ED1B2F] to-[#455185] flex items-center justify-center text-white text-2xl shadow-lg">
+                🔒
+              </div>
+              <h3 className="text-3xl font-bold text-white">Change Password</h3>
+            </div>
             
             {error && (
-              <div className="bg-red-500/20 border border-red-500 text-white p-3 rounded-lg mb-4 text-sm">
-                {error}
+              <div className="bg-red-500/20 border border-red-500 text-white p-4 rounded-xl mb-4 text-sm flex items-start gap-3">
+                <span className="text-xl">⚠️</span>
+                <span>{error}</span>
               </div>
             )}
             
             {success && (
-              <div className="bg-green-500/20 border border-green-500 text-white p-3 rounded-lg mb-4 text-sm">
-                {success}
+              <div className="bg-green-500/20 border border-green-500 text-white p-4 rounded-xl mb-4 text-sm flex items-start gap-3">
+                <span className="text-xl">✅</span>
+                <span>{success}</span>
               </div>
             )}
 
-            <form onSubmit={handlePasswordReset} className="space-y-4">
+            <form onSubmit={handlePasswordReset} className="space-y-5">
               <div>
-                <label className="block text-white/80 mb-2 text-sm">Current Password</label>
+                <label className="block text-white/90 mb-2 text-sm font-medium">Current Password</label>
                 <input
                   type="password"
                   value={passwordData.currentPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                  placeholder="Enter current password"
                   required
                 />
               </div>
               <div>
-                <label className="block text-white/80 mb-2 text-sm">New Password</label>
+                <label className="block text-white/90 mb-2 text-sm font-medium">New Password</label>
                 <input
                   type="password"
                   value={passwordData.newPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                  placeholder="Enter new password"
                   required
                 />
               </div>
               <div>
-                <label className="block text-white/80 mb-2 text-sm">Confirm New Password</label>
+                <label className="block text-white/90 mb-2 text-sm font-medium">Confirm New Password</label>
                 <input
                   type="password"
                   value={passwordData.confirmPassword}
                   onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                  placeholder="Confirm new password"
                   required
                 />
               </div>
@@ -205,13 +259,13 @@ const Navbar = () => {
                 <button
                   type="button"
                   onClick={() => setShowPasswordModal(false)}
-                  className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"
+                  className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all font-medium border border-white/20"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-colors"
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-all font-medium shadow-lg"
                 >
                   Update Password
                 </button>

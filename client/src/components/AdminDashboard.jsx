@@ -450,6 +450,24 @@ const AdminDashboard = () => {
                       <span className="text-white/60">Created By:</span>
                       <span className="text-white font-semibold ml-2">{selectedToken.createdBy?.name}</span>
                     </div>
+                    <div>
+                      <span className="text-white/60">Started:</span>
+                      <span className="text-white font-semibold ml-2">{new Date(selectedToken.createdAt).toLocaleString()}</span>
+                    </div>
+                    {selectedToken.solvedAt && (
+                      <div>
+                        <span className="text-white/60">Resolved:</span>
+                        <span className="text-green-400 font-semibold ml-2">{new Date(selectedToken.solvedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedToken.timeToSolve && (
+                      <div className="col-span-2">
+                        <span className="text-white/60">Time to Resolve:</span>
+                        <span className="text-purple-400 font-semibold ml-2">
+                          {Math.floor(selectedToken.timeToSolve / 60)}h {selectedToken.timeToSolve % 60}m
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

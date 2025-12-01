@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -26,7 +25,7 @@ const SuperAdminDashboard = () => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  
+
   // Modal states
   const [showAdminDetailModal, setShowAdminDetailModal] = useState(false);
   const [showTokenDetailModal, setShowTokenDetailModal] = useState(false);
@@ -49,7 +48,7 @@ const SuperAdminDashboard = () => {
     department: '', categories: [], phone: '', employeeId: ''
   });
   const [newExpertise, setNewExpertise] = useState('');
-  
+
   // Filters
   const [filters, setFilters] = useState({
     department: 'all',
@@ -204,7 +203,7 @@ const SuperAdminDashboard = () => {
       '30d': 30 * 24 * 60 * 60 * 1000,
       'all': Infinity
     };
-    
+
     const cutoff = now - timeRanges[selectedTimeRange];
     const filteredTokens = tokens.filter(t => new Date(t.createdAt) >= cutoff);
 
@@ -229,13 +228,13 @@ const SuperAdminDashboard = () => {
       const deptTokens = filteredTokens.filter(t => t.department?._id === dept._id);
       const solved = deptTokens.filter(t => t.status === 'solved').length;
       const avgTime = deptTokens.filter(t => t.timeToSolve).reduce((sum, t) => sum + t.timeToSolve, 0) / (deptTokens.filter(t => t.timeToSolve).length || 1);
-      
+
       return {
         name: dept.name,
         total: deptTokens.length,
         solved,
         pending: deptTokens.filter(t => t.status === 'pending').length,
-        avgTime: avgTime / (1000 * 60 * 60),
+        avgTime: avgTime / (1000 * 60), // Convert ms to minutes for formatTime
         efficiency: deptTokens.length ? (solved / deptTokens.length * 100).toFixed(1) : 0
       };
     });
@@ -259,7 +258,7 @@ const SuperAdminDashboard = () => {
           solved: solved.length,
           working: adminTokens.filter(t => ['assigned', 'in-progress'].includes(t.status)).length,
           totalTime,
-          avgTime,
+          avgTime: avgTime / (1000 * 60), // Convert ms to minutes for formatTime
           avgRating,
           feedbackCount: feedbackTokens.length,
           efficiency: adminTokens.length ? (solved.length / adminTokens.length * 100) : 0
@@ -300,18 +299,18 @@ const SuperAdminDashboard = () => {
       statusDist,
       feedbackAnalysis,
       avgRating: feedbackAnalysis.total ? (feedbackAnalysis.sum / feedbackAnalysis.total).toFixed(2) : 0,
-      avgSolveTime: filteredTokens.filter(t => t.timeToSolve).reduce((sum, t) => sum + t.timeToSolve, 0) / (filteredTokens.filter(t => t.timeToSolve).length || 1)
+      avgSolveTime: filteredTokens.filter(t => t.timeToSolve).reduce((sum, t) => sum + t.timeToSolve, 0) / (filteredTokens.filter(t => t.timeToSolve).length || 1) / (1000 * 60) // Convert ms to minutes
     };
   }, [tokens, departments, users, selectedTimeRange]);
 
   // Sorting function
   const sortedData = (data, key) => {
     if (!sortConfig.key || sortConfig.key !== key) return data;
-    
+
     return [...data].sort((a, b) => {
       const aVal = a[key];
       const bVal = b[key];
-      
+
       if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -361,11 +360,21 @@ const SuperAdminDashboard = () => {
     return filtered;
   }, [tokens, filters]);
 
-  const formatTime = (ms) => {
-    if (!ms) return 'N/A';
-    const hours = Math.floor(ms / (1000 * 60 * 60));
-    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  // Helper to format time in days, hours, minutes
+  const formatTime = (minutes) => {
+    if (!minutes || minutes === 0) return '0m';
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+
+    if (days > 0) {
+      return `${days}d ${remainingHours}h ${mins}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    } else {
+      return `${mins}m`;
+    }
   };
 
   const COLORS = ['#ED1B2F', '#455185', '#00C49F', '#FFBB28', '#8884D8', '#FF8042'];
@@ -589,7 +598,7 @@ const SuperAdminDashboard = () => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-white/60 text-sm">Avg Time</span>
-                        <span className="text-blue-400 font-semibold">{dept.avgTime.toFixed(1)}h</span>
+                        <span className="text-purple-400 font-semibold">{formatTime(dept.avgTime)}</span>
                       </div>
                     </div>
                     {/* Progress Bar */}
@@ -690,8 +699,10 @@ const SuperAdminDashboard = () => {
                             <span className="text-white/80 text-sm font-semibold">{stat.efficiency.toFixed(0)}%</span>
                           </div>
                         </td>
-                        <td className="py-4 px-4 text-center text-white/80 font-medium">
-                          {formatTime(stat.avgTime)}
+                        <td className="py-4 px-4 text-center">
+                          <span className="text-purple-400 font-semibold">
+                            {formatTime(stat.avgTime)}
+                          </span>
                         </td>
                         <td className="py-4 px-4 text-center">
                           {stat.avgRating > 0 ? (
@@ -774,7 +785,7 @@ const SuperAdminDashboard = () => {
                 {departments.map(dept => {
                   const deptTokens = tokens.filter(t => t.department?._id === dept._id);
                   const solved = deptTokens.filter(t => t.status === 'solved').length;
-                  
+
                   return (
                     <div key={dept._id} className="bg-gradient-to-br from-white/5 to-white/10 rounded-xl p-6 border border-white/20 hover:border-[#ED1B2F]/50 transition-all group">
                       <div className="flex justify-between items-start mb-4">
@@ -851,7 +862,7 @@ const SuperAdminDashboard = () => {
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <h3 className="text-2xl font-bold text-white">👥 Admin Team Directory</h3>
-                
+
                 <div className="flex flex-col md:flex-row gap-3">
                   <input
                     type="text"
@@ -882,7 +893,7 @@ const SuperAdminDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredAdmins.map(profile => {
                   const adminStat = analytics?.adminStats.find(s => s.admin._id === profile.user?._id);
-                  
+
                   return (
                     <div 
                       key={profile._id}
@@ -957,7 +968,7 @@ const SuperAdminDashboard = () => {
           </div>
         )}
 
-        {/* Users Management Tab */}
+        {/* Users Tab */}
         {activeTab === 'users' && (
           <div className="space-y-6">
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
@@ -966,7 +977,7 @@ const SuperAdminDashboard = () => {
                   <h3 className="text-2xl font-bold text-white">👤 User Management</h3>
                   <p className="text-white/60 text-sm mt-1">Manage all users, view details, and control access</p>
                 </div>
-                
+
                 <div className="flex gap-3">
                   <input
                     type="text"
@@ -1135,7 +1146,7 @@ const SuperAdminDashboard = () => {
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <h3 className="text-2xl font-bold text-white">🎫 All Support Tickets</h3>
-                
+
                 <div className="flex flex-wrap gap-3">
                   <select
                     value={filters.status}
@@ -1255,7 +1266,7 @@ const SuperAdminDashboard = () => {
               <h3 className="text-2xl font-bold text-white mb-6">
                 {editingDept ? '✏️ Edit Department' : '➕ New Department'}
               </h3>
-              
+
               <form onSubmit={saveDepartment} className="space-y-4">
                 <div>
                   <label className="block text-white/80 mb-2">Department Name</label>
@@ -1340,7 +1351,7 @@ const SuperAdminDashboard = () => {
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAdminProfileForm(false)}>
             <div className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-2xl font-bold text-white mb-6">➕ Create Admin Profile</h3>
-              
+
               <form onSubmit={createAdminProfile} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1449,76 +1460,302 @@ const SuperAdminDashboard = () => {
 
         {/* Token Detail Modal */}
         {showTokenDetailModal && selectedToken && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTokenDetailModal(false)}>
-            <div className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] rounded-2xl p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-3xl font-bold text-white mb-2">{selectedToken.title}</h3>
-                  <span className="bg-gradient-to-r from-[#ED1B2F]/30 to-[#455185]/30 text-white px-4 py-2 rounded-lg font-mono border border-white/20">
-                    #{selectedToken.tokenNumber || selectedToken._id.slice(-8)}
-                  </span>
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={() => setShowTokenDetailModal(false)}>
+            <div className="bg-gradient-to-br from-[#1a1f3a] via-[#252a4a] to-[#1a1f3a] rounded-3xl max-w-5xl w-full max-h-[95vh] overflow-hidden border border-white/10 shadow-[0_20px_80px_rgba(237,27,47,0.3)]" onClick={(e) => e.stopPropagation()}>
+              {/* Header with gradient */}
+              <div className="relative bg-gradient-to-r from-[#ED1B2F] via-[#c41829] to-[#455185] p-8">
+                <div className="absolute inset-0 bg-black/20"></div>
+                <div className="relative z-10 flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-4xl">🎫</span>
+                      <h3 className="text-3xl font-bold text-white drop-shadow-lg">{selectedToken.title}</h3>
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-lg font-mono text-sm border border-white/30 shadow-lg">
+                        #{selectedToken.tokenNumber || selectedToken._id.slice(-8)}
+                      </span>
+                      <span className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-lg ${
+                        selectedToken.status === 'solved' ? 'bg-green-500/30 text-green-100 border border-green-400/50' :
+                        selectedToken.status === 'in-progress' ? 'bg-blue-500/30 text-blue-100 border border-blue-400/50' :
+                        selectedToken.status === 'assigned' ? 'bg-purple-500/30 text-purple-100 border border-purple-400/50' :
+                        'bg-yellow-500/30 text-yellow-100 border border-yellow-400/50'
+                      }`}>
+                        {selectedToken.status.toUpperCase()}
+                      </span>
+                      <span className={`px-4 py-2 rounded-lg font-semibold text-sm shadow-lg ${
+                        selectedToken.priority === 'high' ? 'bg-red-500/30 text-red-100 border border-red-400/50' :
+                        selectedToken.priority === 'medium' ? 'bg-orange-500/30 text-orange-100 border border-orange-400/50' :
+                        'bg-green-500/30 text-green-100 border border-green-400/50'
+                      }`}>
+                        {selectedToken.priority.toUpperCase()} PRIORITY
+                      </span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowTokenDetailModal(false)} 
+                    className="text-white/80 hover:text-white hover:bg-white/20 rounded-full p-2 transition-all text-2xl w-10 h-10 flex items-center justify-center"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button onClick={() => setShowTokenDetailModal(false)} className="text-white/60 hover:text-white text-3xl">×</button>
               </div>
 
-              <div className="space-y-4">
-                <div className="bg-white/5 rounded-xl p-4">
-                  <p className="text-white/60 text-sm mb-2">Description</p>
-                  <p className="text-white">{selectedToken.description}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <p className="text-white/60 text-sm mb-2">Status</p>
-                    <span className={`px-3 py-1 rounded-full text-sm ${
-                      selectedToken.status === 'solved' ? 'bg-green-500/20 text-green-400' :
-                      selectedToken.status === 'assigned' ? 'bg-blue-500/20 text-blue-400' :
-                      'bg-yellow-500/20 text-yellow-400'
-                    }`}>
-                      {selectedToken.status}
-                    </span>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <p className="text-white/60 text-sm mb-2">Priority</p>
-                    <span className={`px-3 py-1 rounded-full text-sm ${
-                      selectedToken.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                      selectedToken.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-green-500/20 text-green-400'
-                    }`}>
-                      {selectedToken.priority}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedToken.timeToSolve && (
-                  <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl p-4 border border-purple-500/30">
-                    <p className="text-white/60 text-sm mb-2">⏱️ Time to Solve</p>
-                    <p className="text-3xl font-bold text-purple-400">{formatTime(selectedToken.timeToSolve)}</p>
-                  </div>
-                )}
-
-                {selectedToken.solution && (
-                  <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-xl p-4 border border-green-500/30">
-                    <p className="text-white/60 text-sm mb-2">✅ Solution</p>
-                    <p className="text-white/90">{selectedToken.solution}</p>
-                    {selectedToken.solvedBy && (
-                      <p className="text-white/50 text-sm mt-2">
-                        Solved by {selectedToken.solvedBy.name} on {new Date(selectedToken.solvedAt).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {selectedToken.feedback?.rating && (
-                  <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-xl p-4 border border-yellow-500/30">
-                    <p className="text-white/60 text-sm mb-2">💬 User Feedback</p>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-yellow-400 text-2xl">{'⭐'.repeat(selectedToken.feedback.rating)}</span>
-                      <span className="text-white font-bold">({selectedToken.feedback.rating}/5)</span>
+              {/* Content */}
+              <div className="p-8 overflow-y-auto max-h-[calc(95vh-180px)] space-y-6">
+                {/* User & Assignment Info Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Creator Info Card */}
+                  <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/30 shadow-xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                        {selectedToken.createdBy?.name?.charAt(0) || '?'}
+                      </div>
+                      <div>
+                        <p className="text-blue-300/70 text-xs font-semibold uppercase tracking-wide">Ticket Creator</p>
+                        <h4 className="text-white font-bold text-lg">{selectedToken.createdBy?.name || 'Unknown'}</h4>
+                      </div>
                     </div>
-                    {selectedToken.feedback.comment && (
-                      <p className="text-white/80">{selectedToken.feedback.comment}</p>
+                    <div className="space-y-2 bg-white/5 rounded-xl p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-400">📧</span>
+                        <span className="text-white/80 text-sm">{selectedToken.createdBy?.email || 'N/A'}</span>
+                      </div>
+                      {selectedToken.createdBy?.department && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-400">🏢</span>
+                          <span className="text-white/80 text-sm">{selectedToken.createdBy.department.name}</span>
+                        </div>
+                      )}
+                      {selectedToken.createdBy?.employeeCode && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-400">🆔</span>
+                          <span className="text-white/80 text-sm">EMP-{selectedToken.createdBy.employeeCode}</span>
+                        </div>
+                      )}
+                      {selectedToken.createdBy?.companyName && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-400">🏭</span>
+                          <span className="text-white/80 text-sm">{selectedToken.createdBy.companyName}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Assigned Admin Info Card */}
+                  {selectedToken.assignedTo ? (
+                    <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/30 shadow-xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                          {selectedToken.assignedTo?.name?.charAt(0) || '?'}
+                        </div>
+                        <div>
+                          <p className="text-purple-300/70 text-xs font-semibold uppercase tracking-wide">Assigned To</p>
+                          <h4 className="text-white font-bold text-lg">{selectedToken.assignedTo?.name || 'Unknown'}</h4>
+                        </div>
+                      </div>
+                      <div className="space-y-2 bg-white/5 rounded-xl p-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-purple-400">📧</span>
+                          <span className="text-white/80 text-sm">{selectedToken.assignedTo?.email || 'N/A'}</span>
+                        </div>
+                        {selectedToken.assignedTo?.department && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-purple-400">🏢</span>
+                            <span className="text-white/80 text-sm">{selectedToken.assignedTo.department.name}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-purple-400">👤</span>
+                          <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs font-semibold">
+                            {selectedToken.assignedTo?.role?.toUpperCase() || 'ADMIN'}
+                          </span>
+                        </div>
+                        {selectedToken.assignedAt && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-purple-400">📅</span>
+                            <span className="text-white/70 text-xs">
+                              Assigned: {new Date(selectedToken.assignedAt).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gradient-to-br from-gray-500/10 to-gray-600/10 backdrop-blur-xl rounded-2xl p-6 border border-gray-500/30 shadow-xl flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-6xl mb-3">👤</div>
+                        <p className="text-gray-400 font-semibold text-lg">Not Assigned Yet</p>
+                        <p className="text-gray-500 text-sm mt-2">Awaiting admin assignment</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 shadow-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">📝</span>
+                    <h4 className="text-white font-bold text-lg">Description</h4>
+                  </div>
+                  <p className="text-white/90 leading-relaxed">{selectedToken.description}</p>
+                </div>
+
+                {/* Ticket Information Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                    <p className="text-white/60 text-xs mb-2 uppercase tracking-wide font-semibold">Department</p>
+                    <p className="text-white font-bold">{selectedToken.department?.name || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                    <p className="text-white/60 text-xs mb-2 uppercase tracking-wide font-semibold">Category</p>
+                    <p className="text-white font-bold">{selectedToken.category || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                    <p className="text-white/60 text-xs mb-2 uppercase tracking-wide font-semibold">Sub-Category</p>
+                    <p className="text-white font-bold">{selectedToken.subCategory || 'N/A'}</p>
+                  </div>
+                  <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                    <p className="text-white/60 text-xs mb-2 uppercase tracking-wide font-semibold">Created</p>
+                    <p className="text-white font-bold text-sm">{new Date(selectedToken.createdAt).toLocaleDateString()}</p>
+                    <p className="text-white/60 text-xs">{new Date(selectedToken.createdAt).toLocaleTimeString()}</p>
+                  </div>
+                </div>
+
+                {/* Time Tracking Section */}
+                <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-xl rounded-2xl p-6 border border-indigo-500/30 shadow-xl">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-3xl">⏱️</span>
+                    <h4 className="text-white font-bold text-xl">Time Tracking</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white/10 rounded-xl p-4 text-center">
+                      <p className="text-indigo-300 text-sm mb-2 font-semibold">Started</p>
+                      <p className="text-white font-bold text-lg">{new Date(selectedToken.createdAt).toLocaleDateString()}</p>
+                      <p className="text-white/70 text-sm">{new Date(selectedToken.createdAt).toLocaleTimeString()}</p>
+                    </div>
+                    {selectedToken.solvedAt ? (
+                      <>
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
+                          <p className="text-green-300 text-sm mb-2 font-semibold">Resolved</p>
+                          <p className="text-green-400 font-bold text-lg">{new Date(selectedToken.solvedAt).toLocaleDateString()}</p>
+                          <p className="text-green-400/70 text-sm">{new Date(selectedToken.solvedAt).toLocaleTimeString()}</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-4 text-center border border-purple-400/30">
+                          <p className="text-purple-300 text-sm mb-2 font-semibold">Time to Resolve</p>
+                          <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                            {selectedToken.timeToSolve ? formatTime(selectedToken.timeToSolve / (1000 * 60)) : '0m'} {/* Convert ms to minutes */}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
+                          <p className="text-yellow-300 text-sm mb-2 font-semibold">Status</p>
+                          <p className="text-yellow-400 font-bold text-lg">In Progress</p>
+                          <p className="text-yellow-400/70 text-sm">Pending resolution</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl p-4 text-center border border-yellow-400/30">
+                          <p className="text-yellow-300 text-sm mb-2 font-semibold">Elapsed Time</p>
+                          <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400">
+                            {formatTime((Date.now() - new Date(selectedToken.createdAt).getTime()) / (1000 * 60))} {/* Convert ms to minutes */}
+                          </p>
+                        </div>
+                      </>
                     )}
+                  </div>
+                </div>
+
+                {/* Solution Section */}
+                {selectedToken.solution && (
+                  <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl rounded-2xl p-6 border border-green-500/30 shadow-xl">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-3xl">✅</span>
+                      <h4 className="text-white font-bold text-xl">Solution Provided</h4>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-4 mb-4">
+                      <p className="text-white/90 leading-relaxed">{selectedToken.solution}</p>
+                    </div>
+                    {selectedToken.solvedBy && (
+                      <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold">
+                          {selectedToken.solvedBy.name?.charAt(0)}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-green-400 font-semibold">{selectedToken.solvedBy.name}</p>
+                          <p className="text-white/50 text-xs">
+                            Resolved on {new Date(selectedToken.solvedAt).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Feedback Section */}
+                {selectedToken.feedback?.rating && (
+                  <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 backdrop-blur-xl rounded-2xl p-6 border border-yellow-500/30 shadow-xl">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-3xl">💬</span>
+                      <h4 className="text-white font-bold text-xl">User Feedback</h4>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-5">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <span 
+                              key={star} 
+                              className={`text-3xl ${star <= selectedToken.feedback.rating ? 'text-yellow-400' : 'text-gray-600'}`}
+                            >
+                              ⭐
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-white font-bold text-2xl">
+                          {selectedToken.feedback.rating}/5
+                        </span>
+                      </div>
+                      {selectedToken.feedback.comment && (
+                        <div className="bg-white/5 rounded-lg p-4 mt-3">
+                          <p className="text-white/90 italic">"{selectedToken.feedback.comment}"</p>
+                        </div>
+                      )}
+                      {selectedToken.feedback.submittedAt && (
+                        <p className="text-white/50 text-xs mt-3">
+                          Submitted on {new Date(selectedToken.feedback.submittedAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Metadata */}
+                {(selectedToken.updatedAt || selectedToken.tags || selectedToken.attachments) && (
+                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 shadow-lg">
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-2xl">📊</span>
+                      <h4 className="text-white font-bold text-lg">Additional Information</h4>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      {selectedToken.updatedAt && (
+                        <div className="flex justify-between items-center py-2 border-b border-white/10">
+                          <span className="text-white/60">Last Updated</span>
+                          <span className="text-white font-semibold">{new Date(selectedToken.updatedAt).toLocaleString()}</span>
+                        </div>
+                      )}
+                      {selectedToken.tags && selectedToken.tags.length > 0 && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-white/60">Tags</span>
+                          <div className="flex gap-2">
+                            {selectedToken.tags.map((tag, idx) => (
+                              <span key={idx} className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-xs">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1631,7 +1868,7 @@ const SuperAdminDashboard = () => {
                  statusAction.status === 'frozen' ? '❄️ Freeze User' :
                  '✅ Activate User'}
               </h3>
-              
+
               <div className="mb-6">
                 <p className="text-white/80 mb-2">User: <span className="font-semibold">{selectedUser.name}</span></p>
                 <p className="text-white/60 text-sm">{selectedUser.email}</p>

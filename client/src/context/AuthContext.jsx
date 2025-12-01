@@ -30,6 +30,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+  // Set axios default timeout and base URL
+  axios.defaults.timeout = 10000;
+  axios.defaults.baseURL = API_URL;
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     console.log('Auth token check:', token ? 'Token exists' : 'No token');
@@ -44,7 +48,7 @@ export const AuthProvider = ({ children }) => {
   const fetchUser = async () => {
     try {
       // The token is now automatically included by the interceptor
-      const response = await axios.get(`${API_URL}/auth/me`);
+      const response = await axios.get('/auth/me');
       setUser(response.data.user);
     } catch (error) {
       localStorage.removeItem('token');
@@ -57,16 +61,23 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const response = await axios.post(`${API_URL}/auth/login`, { email, password });
-    localStorage.setItem('token', response.data.token);
-    // The interceptor will now handle setting the Authorization header for subsequent requests
-    setUser(response.data.user);
-    return response.data;
+    try {
+      const response = await axios.post('/auth/login', { email, password });
+      localStorage.setItem('token', response.data.token);
+      // The interceptor will now handle setting the Authorization header for subsequent requests
+      setUser(response.data.user);
+      return response.data;
+    } catch (error) {
+      if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
+        throw new Error('Cannot connect to server. Please check if the server is running.');
+      }
+      throw error;
+    }
   };
 
   const logout = async () => {
     try {
-      await axios.post(`${API_URL}/auth/logout`);
+      await axios.post('/auth/logout');
     } catch (error) {
       console.error("Logout failed:", error);
       // Continue with local cleanup even if logout API call fails
@@ -78,7 +89,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
-    await axios.post(`${API_URL}/auth/register`, userData);
+    await axios.post('/auth/register', userData);
   };
 
   return (

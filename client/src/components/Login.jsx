@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Float, MeshDistortMaterial } from '@react-three/drei';
+import logo from '../assets/logo.png';
 
 const AnimatedSphere = () => (
   <Float speed={2} rotationIntensity={1} floatIntensity={2}>
@@ -90,7 +91,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-gray-900 via-[#1a1f3a] to-gray-900">
       {/* Animated Background */}
       <div className="absolute inset-0 opacity-20">
         <Canvas>
@@ -102,32 +103,30 @@ const Login = () => {
       </div>
 
       {/* Login/Signup Card */}
-      <div className="relative z-10 bg-white/10 backdrop-blur-xl rounded-3xl p-8 w-full max-w-md shadow-2xl border border-white/20">
+      <div className="relative z-10 bg-gradient-to-br from-white/15 to-white/5 backdrop-blur-2xl rounded-3xl p-8 w-full max-w-md shadow-2xl border border-white/30">
         {/* Logo */}
-        <div className="flex justify-center mb-4">
-          <div className="bg-[#455185]/80 p-4 rounded-xl border-2 border-[#ED1B2F]">
-            <svg width="60" height="60" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <polygon points="50,20 80,70 20,70" fill="#ED1B2F"/>
-            </svg>
+        <div className="flex justify-center mb-6">
+          <div className="bg-white/90 backdrop-blur-sm p-4 rounded-2xl shadow-xl border-2 border-[#ED1B2F]/30">
+            <img src={logo} alt="Logo" className="w-16 h-16 object-contain" />
           </div>
         </div>
 
         {/* Title and Tagline */}
-        <h1 className="text-4xl font-bold text-white text-center mb-2">
-          TOKEN SYSTEM
+        <h1 className="text-4xl font-bold text-white text-center mb-2 drop-shadow-lg">
+          TICKETING SYSTEM
         </h1>
-        <p className="text-white/80 text-center mb-6 text-sm">
+        <p className="text-white text-center mb-6 text-sm font-medium drop-shadow">
           {isForgotPassword ? 'Reset Your Password' : isLogin ? 'Secure Employee Portal' : 'Create New Account'}
         </p>
 
         {error && (
-          <div className="bg-red-500/20 border border-red-500 text-white p-3 rounded-lg mb-4 text-sm">
+          <div className="bg-red-500/30 border-2 border-red-400 text-white p-3 rounded-lg mb-4 text-sm font-medium shadow-lg">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="bg-green-500/20 border border-green-500 text-white p-3 rounded-lg mb-4 text-sm">
+          <div className="bg-green-500/30 border-2 border-green-400 text-white p-3 rounded-lg mb-4 text-sm font-medium shadow-lg">
             {success}
           </div>
         )}
@@ -137,7 +136,7 @@ const Login = () => {
             <>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
@@ -146,7 +145,7 @@ const Login = () => {
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-white/20 border-2 border-white/40 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all font-medium"
                   required
                 />
               </div>
@@ -157,7 +156,7 @@ const Login = () => {
                 <>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
@@ -166,14 +165,14 @@ const Login = () => {
                       placeholder="Full Name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-white/20 border-2 border-white/40 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all font-medium"
                       required
                     />
                   </div>
 
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                     </div>
@@ -182,14 +181,14 @@ const Login = () => {
                       placeholder="Company Name"
                       value={formData.companyName}
                       onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-white/20 border-2 border-white/40 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all font-medium"
                       required
                     />
                   </div>
 
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
                       </svg>
                     </div>
@@ -198,7 +197,7 @@ const Login = () => {
                       placeholder="Employee Code"
                       value={formData.employeeCode}
                       onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                      className="w-full pl-10 pr-4 py-3 bg-white/20 border-2 border-white/40 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all font-medium"
                       required
                     />
                   </div>
@@ -207,7 +206,7 @@ const Login = () => {
 
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
@@ -216,14 +215,14 @@ const Login = () => {
                   placeholder={isLogin ? "Email or Employee Code" : "Company Email"}
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-white/20 border-2 border-white/40 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all font-medium"
                   required
                 />
               </div>
 
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
@@ -232,13 +231,13 @@ const Login = () => {
                   placeholder="Password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-12 py-3 bg-white/20 border-2 border-white/40 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all font-medium"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/60 hover:text-white transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-white hover:text-white/80 transition-colors"
                 >
                   {showPassword ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,7 +255,7 @@ const Login = () => {
               {!isLogin && (
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="w-5 h-5 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   </div>
@@ -265,13 +264,13 @@ const Login = () => {
                     placeholder="Confirm Password"
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/30 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-12 py-3 bg-white/20 border-2 border-white/40 rounded-lg text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] focus:border-transparent transition-all font-medium"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-white/60 hover:text-white transition-colors"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-white hover:text-white/80 transition-colors"
                   >
                     {showConfirmPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,7 +290,7 @@ const Login = () => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#b91525] text-white rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+            className="w-full py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#b91525] text-white rounded-lg font-bold text-lg transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-[1.02]"
           >
             {isForgotPassword ? 'Send Reset Link' : isLogin ? 'Login' : 'Register'}
           </button>
@@ -306,7 +305,7 @@ const Login = () => {
                 setSuccess('');
                 setFormData({ email: '', password: '', confirmPassword: '', name: '', employeeCode: '', companyName: '' });
               }}
-              className="text-white/80 hover:text-white text-sm underline"
+              className="text-white hover:text-white/90 text-sm font-semibold underline decoration-2"
             >
               Forgot Password?
             </button>
@@ -315,7 +314,7 @@ const Login = () => {
 
         <div className="mt-6 text-center">
           {isForgotPassword ? (
-            <p className="text-white/80 text-sm">
+            <p className="text-white text-sm font-medium">
               Remember your password?{' '}
               <button
                 onClick={() => {
@@ -324,13 +323,13 @@ const Login = () => {
                   setSuccess('');
                   setFormData({ email: '', password: '', confirmPassword: '', name: '', employeeCode: '', companyName: '' });
                 }}
-                className="text-[#ED1B2F] font-semibold hover:underline ml-1"
+                className="text-[#FF6B6B] hover:text-[#FF5252] font-bold underline decoration-2 ml-1"
               >
                 Login here
               </button>
             </p>
           ) : (
-            <p className="text-white/80 text-sm">
+            <p className="text-white text-sm font-medium">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button
                 onClick={() => {
@@ -339,7 +338,7 @@ const Login = () => {
                   setSuccess('');
                   setFormData({ email: '', password: '', confirmPassword: '', name: '', employeeCode: '', companyName: '' });
                 }}
-                className="text-[#ED1B2F] font-semibold hover:underline ml-1"
+                className="text-[#FF6B6B] hover:text-[#FF5252] font-bold underline decoration-2 ml-1"
               >
                 {isLogin ? 'Register here' : 'Login here'}
               </button>
@@ -347,7 +346,7 @@ const Login = () => {
           )}
         </div>
 
-        <div className="mt-6 text-center text-white/60 text-xs">
+        <div className="mt-6 text-center text-white/90 text-xs font-medium drop-shadow">
           © 2025 Akshay Software Technologies Private Limited. All rights reserved.
         </div>
       </div>
