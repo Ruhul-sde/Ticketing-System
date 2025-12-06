@@ -17,6 +17,142 @@ const validateObjectId = (req, res, next) => {
   next();
 };
 
+// Admin/SuperAdmin creating token on behalf of user
+router.post('/on-behalf', authenticate, authorize('admin', 'superadmin'), async (req, res) => {
+  try {
+    const { title, description, priority, department, category, subCategory, attachments, reason, userDetails } = req.body;
+
+    // Validate required fields
+    if (!title || !description) {
+      return res.status(400).json({ message: 'Title and description are required' });
+    }
+
+    if (!userDetails || !userDetails.name || !userDetails.email) {
+      return res.status(400).json({ message: 'User name and email are required' });
+    }
+
+    // Validate title and description length
+    if (title.trim().length < 3 || title.trim().length > 200) {
+      return res.status(400).json({ message: 'Title must be between 3 and 200 characters' });
+    }
+
+    if (description.trim().length < 10 || description.trim().length > 2000) {
+      return res.status(400).json({ message: 'Description must be between 10 and 2000 characters' });
+    }
+
+    // Validate priority
+    const validPriorities = ['low', 'medium', 'high'];
+    if (priority && !validPriorities.includes(priority)) {
+      return res.status(400).json({ message: 'Invalid priority value' });
+    }
+
+    // Validate department exists if provided
+    let deptExists = null;
+    if (department) {
+      deptExists = await Department.findById(department);
+      if (!deptExists) {
+        return res.status(400).json({ message: 'Invalid department' });
+      }
+
+      // Validate category exists in department if provided
+      if (category) {
+        const categoryExists = deptExists.categories.some(cat => cat.name === category);
+        if (!categoryExists) {
+          return res.status(400).json({ message: 'Invalid category for selected department' });
+        }
+      }
+    }
+
+    // Check if user exists, if not create a temporary user record
+    let user = await User.findOne({ email: userDetails.email.toLowerCase() });
+    
+    if (!user) {
+      // Create a new user account
+      const bcrypt = (await import('bcryptjs')).default;
+      const tempPassword = Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      
+      user = new User({
+        email: userDetails.email.toLowerCase(),
+        password: hashedPassword,
+        name: userDetails.name,
+        employeeCode: userDetails.employeeCode || undefined,
+        companyName: userDetails.companyName || undefined,
+        role: 'user',
+        department: department || undefined
+      });
+      
+      await user.save();
+      
+      // Send email with credentials (if email service is configured)
+      try {
+        await sendEmailNotification(user.email, null, {
+          subject: 'Account Created - Support Token System',
+          text: `Your account has been created by an administrator.\n\nEmail: ${user.email}\nTemporary Password: ${tempPassword}\n\nPlease login and change your password.`
+        });
+      } catch (emailError) {
+        console.error('Failed to send email:', emailError);
+      }
+    }
+
+    // Generate token number
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    let deptInitial = 'G';
+    if (department) {
+      const dept = await Department.findById(department);
+      if (dept) {
+        deptInitial = dept.name ? dept.name.charAt(0).toUpperCase() : 'G';
+      }
+    }
+
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(todayStart);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+
+    const todayCount = await Token.countDocuments({
+      createdAt: { $gte: todayStart, $lt: todayEnd },
+      department: department || null
+    });
+
+    const sequenceNumber = String(todayCount + 1).padStart(3, '0');
+    const tokenNumber = `T${year}${month}${day}${deptInitial}${sequenceNumber}`;
+
+    const token = new Token({
+      tokenNumber,
+      title,
+      description,
+      priority,
+      department: department || null,
+      category,
+      subCategory,
+      attachments,
+      reason: reason || `Created on behalf of user by ${req.user.name}`,
+      createdBy: user._id
+    });
+
+    await token.save();
+    await token.populate(['createdBy', 'department']);
+
+    // Notify admins about the new token
+    const admins = await User.find({ role: { $in: ['admin', 'superadmin'] } });
+    for (const admin of admins) {
+      await sendEmailNotification(admin.email, token);
+    }
+
+    res.status(201).json({ 
+      token,
+      message: user.isNew ? 'Token created and user account created' : 'Token created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating token on behalf:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 router.post('/', authenticate, async (req, res) => {
   try {
     const { title, description, priority, department, category, subCategory, attachments, reason } = req.body;
@@ -455,12 +591,12 @@ router.post('/:id/feedback', authenticate, validateObjectId, async (req, res) =>
     };
 
     await token.save();
-    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']); // Repopulate after save
+    await token.populate(['createdBy', 'assignedTo', 'solvedBy', 'department']);
 
     res.json(token);
   } catch (error) {
-    res.status(500).json({ message: error.message }); // Generic error handling
+    res.status(500).json({ message: error.message });
   }
 });
 
-export default router; // Export the router
+export default router;

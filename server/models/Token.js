@@ -43,7 +43,7 @@ const tokenSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'assigned', 'in-progress', 'resolved', 'closed'],
+    enum: ['pending', 'assigned', 'in-progress', 'resolved'],
     default: 'pending'
   },
   priority: {

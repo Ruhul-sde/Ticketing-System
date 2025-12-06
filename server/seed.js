@@ -218,7 +218,7 @@ const seedDatabase = async () => {
 
     // Create Tokens
     const tokens = [];
-    const statuses = ['pending', 'assigned', 'resolved'];
+    const statuses = ['pending', 'assigned', 'in-progress', 'resolved'];
     const priorities = ['low', 'medium', 'high'];
     const regularUsers = users.filter(u => u.role === 'user');
 
@@ -244,7 +244,7 @@ const seedDatabase = async () => {
           createdAt: createdAt
         };
 
-        if (status === 'assigned' || status === 'resolved') {
+        if (status === 'assigned' || status === 'in-progress' || status === 'resolved') {
           const deptAdmins = adminUsers.filter(a => a.department.toString() === dept._id.toString());
           if (deptAdmins.length > 0) {
             token.assignedTo = deptAdmins[0]._id;
@@ -255,6 +255,7 @@ const seedDatabase = async () => {
           token.solvedAt = new Date(createdAt.getTime() + Math.floor(Math.random() * 5) * 24 * 60 * 60 * 1000);
           token.solvedBy = token.assignedTo;
           token.timeToSolve = Math.floor((token.solvedAt - createdAt) / 1000 / 60);
+          token.solution = `Sample solution for ${token.title}`;
         }
 
         tokens.push(token);
@@ -282,7 +283,7 @@ const seedDatabase = async () => {
         createdAt: createdAt
       };
 
-      if (status === 'assigned' || status === 'resolved') {
+      if (status === 'assigned' || status === 'in-progress' || status === 'resolved') {
         const deptAdmins = adminUsers.filter(a => a.department.toString() === dept._id.toString());
         if (deptAdmins.length > 0) {
           token.assignedTo = deptAdmins[0]._id;
@@ -293,6 +294,7 @@ const seedDatabase = async () => {
         token.solvedAt = new Date(createdAt.getTime() + Math.floor(Math.random() * 5) * 24 * 60 * 60 * 1000);
         token.solvedBy = token.assignedTo;
         token.timeToSolve = Math.floor((token.solvedAt - createdAt) / 1000 / 60);
+        token.solution = `Sample solution for ${token.title}`;
       }
 
       tokens.push(token);

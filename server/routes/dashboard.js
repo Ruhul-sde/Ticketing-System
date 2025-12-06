@@ -17,18 +17,20 @@ router.get('/stats', authenticate, authorize('admin', 'superadmin'), async (req,
     const totalTokens = await Token.countDocuments(query);
     const pendingTokens = await Token.countDocuments({ ...query, status: 'pending' });
     const assignedTokens = await Token.countDocuments({ ...query, status: 'assigned' });
-    const solvedTokens = await Token.countDocuments({ ...query, status: 'resolved' });
+    const inProgressTokens = await Token.countDocuments({ ...query, status: 'in-progress' });
+    const resolvedTokens = await Token.countDocuments({ ...query, status: 'resolved' });
 
 
     // Re-calculate solverStats with the department filter if applicable
+    // Note: timeToSolve is stored in milliseconds
     const solverStats = await Token.aggregate([
       { $match: { status: 'resolved', ...query } }, // Apply department filter here as well
       {
         $group: {
           _id: '$solvedBy',
           tokensSolved: { $sum: 1 },
-          avgTimeToSolve: { $avg: '$timeToSolve' },
-          totalTimeSpent: { $sum: '$timeToSolve' }
+          avgTimeToSolve: { $avg: '$timeToSolve' }, // milliseconds
+          totalTimeSpent: { $sum: '$timeToSolve' } // milliseconds
         }
       },
       {
@@ -45,8 +47,8 @@ router.get('/stats', authenticate, authorize('admin', 'superadmin'), async (req,
           solverName: '$solver.name',
           solverEmail: '$solver.email',
           tokensSolved: 1,
-          avgTimeToSolve: 1,
-          totalTimeSpent: 1
+          avgTimeToSolve: 1, // in milliseconds
+          totalTimeSpent: 1 // in milliseconds
         }
       }
     ]);
@@ -64,10 +66,10 @@ router.get('/stats', authenticate, authorize('admin', 'superadmin'), async (req,
         totalTokens,
         pendingTokens,
         assignedTokens,
-        resolvedTokens: solvedTokens,
-        solvedTokens
+        inProgressTokens,
+        resolvedTokens
       },
-      departmentStats: solverStats, // Renamed from solverStats to departmentStats for clarity in this context
+      solverStats,
       recentTokens
     });
   } catch (error) {

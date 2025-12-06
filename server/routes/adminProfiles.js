@@ -92,18 +92,41 @@ router.post('/', authenticate, authorize('superadmin'), async (req, res) => {
 // Update admin profile (superadmin only)
 router.patch('/:id', authenticate, authorize('superadmin'), async (req, res) => {
   try {
-    // Removed unused fields: bio, departments, profileImage, isActive, address, emergencyContact
-    const { expertise, phone, employeeId } = req.body;
+    const { name, expertise, phone, employeeId, department, categories } = req.body;
 
-    const profile = await AdminProfile.findByIdAndUpdate(
+    // Find the profile to get the user ID
+    const profile = await AdminProfile.findById(req.params.id);
+    if (!profile) {
+      return res.status(404).json({ message: 'Admin profile not found' });
+    }
+
+    // Update the User model if name or department changed
+    if (name || department) {
+      const userUpdate = {};
+      if (name) userUpdate.name = name;
+      if (department) userUpdate.department = department;
+      
+      await User.findByIdAndUpdate(profile.user, userUpdate);
+    }
+
+    // Update admin profile
+    const updateData = {};
+    if (expertise !== undefined) updateData.expertise = expertise;
+    if (phone !== undefined) updateData.phone = phone;
+    if (employeeId !== undefined) updateData.employeeId = employeeId;
+    if (department !== undefined) updateData.department = department;
+    if (categories !== undefined) updateData.categories = categories;
+    updateData.updatedAt = Date.now();
+
+    const updatedProfile = await AdminProfile.findByIdAndUpdate(
       req.params.id,
-      { expertise, phone, employeeId }, // Only update fields that are still relevant
-      { new: true }
+      updateData,
+      { new: true, runValidators: true }
     )
       .populate('user', 'name email role department employeeCode')
       .populate('department', 'name description categories');
 
-    res.json(profile);
+    res.json(updatedProfile);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

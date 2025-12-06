@@ -40,6 +40,7 @@ const SuperAdminDashboard = () => {
 
   // Form states
   const [showAdminProfileForm, setShowAdminProfileForm] = useState(false);
+  const [showCreateTokenModal, setShowCreateTokenModal] = useState(false);
   const [newDept, setNewDept] = useState({ name: '', description: '', categories: [] });
   const [newCategory, setNewCategory] = useState({ name: '', description: '', subCategories: [] });
   const [newSubCategory, setNewSubCategory] = useState('');
@@ -48,6 +49,21 @@ const SuperAdminDashboard = () => {
     department: '', categories: [], phone: '', employeeId: ''
   });
   const [newExpertise, setNewExpertise] = useState('');
+  const [newToken, setNewToken] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    department: '',
+    category: '',
+    subCategory: '',
+    reason: '',
+    userDetails: {
+      name: '',
+      email: '',
+      employeeCode: '',
+      companyName: ''
+    }
+  });
 
   // Filters
   const [filters, setFilters] = useState({
@@ -60,6 +76,8 @@ const SuperAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { API_URL, user } = useAuth();
+
+  const [editingAdmin, setEditingAdmin] = useState(false); // State to track if we are editing an admin
 
   useEffect(() => {
     fetchData();
@@ -126,13 +144,33 @@ const SuperAdminDashboard = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      const config = { headers: { 'Authorization': `Bearer ${token}` } };
-      await axios.post(`${API_URL}/admin-profiles`, newAdminProfile, config);
-      setNewAdminProfile({ name: '', email: '', password: '', expertise: [], department: '', categories: [], phone: '', employeeId: '' });
+      const url = editingAdmin 
+        ? `${API_URL}/admin-profiles/${editingAdmin._id}` 
+        : `${API_URL}/admin-profiles`;
+
+      const method = editingAdmin ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newAdminProfile)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save admin profile');
+      }
+
       setShowAdminProfileForm(false);
-      fetchData();
+      setEditingAdmin(null);
+      setNewAdminProfile({ name: '', email: '', password: '', expertise: [], department: '', categories: [], phone: '', employeeId: '' });
+      fetchData(); // Re-fetch data to reflect changes
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to create admin profile');
+      console.error('Error saving admin profile:', error);
+      alert(error.message);
     }
   };
 
@@ -192,6 +230,43 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const createTokenOnBehalf = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: { 
+          'Authorization': `Bearer ${token}` 
+        }
+      };
+
+      await axios.post(`${API_URL}/tokens/on-behalf`, newToken, config);
+
+      setShowCreateTokenModal(false);
+      setNewToken({
+        title: '',
+        description: '',
+        priority: 'medium',
+        department: '',
+        category: '',
+        subCategory: '',
+        reason: '',
+        userDetails: {
+          name: '',
+          email: '',
+          employeeCode: '',
+          companyName: ''
+        }
+      });
+
+      fetchData();
+      alert('Token created successfully on behalf of user');
+    } catch (error) {
+      console.error('Error creating token:', error);
+      alert(error.response?.data?.message || 'Failed to create token');
+    }
+  };
+
   // Analytics calculations
   const analytics = useMemo(() => {
     if (!tokens.length) return null;
@@ -226,16 +301,19 @@ const SuperAdminDashboard = () => {
     // Department performance
     const deptPerformance = departments.map(dept => {
       const deptTokens = filteredTokens.filter(t => t.department?._id === dept._id);
-      const solved = deptTokens.filter(t => t.status === 'solved').length;
-      const avgTime = deptTokens.filter(t => t.timeToSolve).reduce((sum, t) => sum + t.timeToSolve, 0) / (deptTokens.filter(t => t.timeToSolve).length || 1);
+      const resolved = deptTokens.filter(t => t.status === 'resolved').length;
+      const resolvedWithTime = deptTokens.filter(t => t.timeToSolve);
+      const avgTime = resolvedWithTime.length > 0 
+        ? resolvedWithTime.reduce((sum, t) => sum + t.timeToSolve, 0) / resolvedWithTime.length 
+        : 0;
 
       return {
         name: dept.name,
         total: deptTokens.length,
-        solved,
+        solved: resolved,
         pending: deptTokens.filter(t => t.status === 'pending').length,
-        avgTime: avgTime / (1000 * 60), // Convert ms to minutes for formatTime
-        efficiency: deptTokens.length ? (solved / deptTokens.length * 100).toFixed(1) : 0
+        avgTime: avgTime, // Already in milliseconds
+        efficiency: deptTokens.length ? (resolved / deptTokens.length * 100).toFixed(1) : 0
       };
     });
 
@@ -244,10 +322,10 @@ const SuperAdminDashboard = () => {
       .filter(u => u.role === 'admin')
       .map(admin => {
         const adminTokens = filteredTokens.filter(t => t.assignedTo?._id === admin._id);
-        const solved = adminTokens.filter(t => t.status === 'solved');
-        const totalTime = solved.reduce((sum, t) => sum + (t.timeToSolve || 0), 0);
-        const avgTime = solved.length ? totalTime / solved.length : 0;
-        const feedbackTokens = solved.filter(t => t.feedback?.rating);
+        const resolved = adminTokens.filter(t => t.status === 'resolved');
+        const totalTime = resolved.reduce((sum, t) => sum + (t.timeToSolve || 0), 0);
+        const avgTime = resolved.length ? totalTime / resolved.length : 0;
+        const feedbackTokens = resolved.filter(t => t.feedback?.rating);
         const avgRating = feedbackTokens.length 
           ? feedbackTokens.reduce((sum, t) => sum + t.feedback.rating, 0) / feedbackTokens.length 
           : 0;
@@ -255,13 +333,13 @@ const SuperAdminDashboard = () => {
         return {
           admin,
           total: adminTokens.length,
-          solved: solved.length,
+          solved: resolved.length,
           working: adminTokens.filter(t => ['assigned', 'in-progress'].includes(t.status)).length,
           totalTime,
-          avgTime: avgTime / (1000 * 60), // Convert ms to minutes for formatTime
+          avgTime: avgTime, // Already in milliseconds
           avgRating,
           feedbackCount: feedbackTokens.length,
-          efficiency: adminTokens.length ? (solved.length / adminTokens.length * 100) : 0
+          efficiency: adminTokens.length ? (resolved.length / adminTokens.length * 100) : 0
         };
       })
       .sort((a, b) => b.solved - a.solved);
@@ -275,7 +353,7 @@ const SuperAdminDashboard = () => {
 
     // Status distribution
     const statusDist = {
-      solved: filteredTokens.filter(t => t.status === 'solved').length,
+      resolved: filteredTokens.filter(t => t.status === 'resolved').length,
       pending: filteredTokens.filter(t => t.status === 'pending').length,
       assigned: filteredTokens.filter(t => ['assigned', 'in-progress'].includes(t.status)).length
     };
@@ -299,7 +377,9 @@ const SuperAdminDashboard = () => {
       statusDist,
       feedbackAnalysis,
       avgRating: feedbackAnalysis.total ? (feedbackAnalysis.sum / feedbackAnalysis.total).toFixed(2) : 0,
-      avgSolveTime: filteredTokens.filter(t => t.timeToSolve).reduce((sum, t) => sum + t.timeToSolve, 0) / (filteredTokens.filter(t => t.timeToSolve).length || 1) / (1000 * 60) // Convert ms to minutes
+      avgSolveTime: filteredTokens.filter(t => t.timeToSolve).length > 0 
+        ? filteredTokens.filter(t => t.timeToSolve).reduce((sum, t) => sum + t.timeToSolve, 0) / filteredTokens.filter(t => t.timeToSolve).length
+        : 0 // Already in milliseconds
     };
   }, [tokens, departments, users, selectedTimeRange]);
 
@@ -360,20 +440,22 @@ const SuperAdminDashboard = () => {
     return filtered;
   }, [tokens, filters]);
 
-  // Helper to format time in days, hours, minutes
-  const formatTime = (minutes) => {
-    if (!minutes || minutes === 0) return '0m';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.floor(minutes % 60);
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
+  // Helper to format time in days, hours, minutes from milliseconds
+  const formatTime = (milliseconds) => {
+    if (!milliseconds || milliseconds === 0) return '0m';
+    
+    const totalMinutes = Math.floor(milliseconds / (1000 * 60));
+    const totalHours = Math.floor(totalMinutes / 60);
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const minutes = totalMinutes % 60;
 
     if (days > 0) {
-      return `${days}d ${remainingHours}h ${mins}m`;
+      return `${days}d ${hours}h ${minutes}m`;
     } else if (hours > 0) {
-      return `${hours}h ${mins}m`;
+      return `${hours}h ${minutes}m`;
     } else {
-      return `${mins}m`;
+      return `${minutes}m`;
     }
   };
 
@@ -430,6 +512,14 @@ const SuperAdminDashboard = () => {
             <p className="text-white/40 text-sm mt-1">Welcome back, {user?.name}</p>
           </div>
 
+          <button
+            onClick={() => setShowCreateTokenModal(true)}
+            className="px-6 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2 whitespace-nowrap"
+          >
+            <span>➕</span>
+            Create Token for User
+          </button>
+
           {/* Time Range Selector */}
           <div className="flex gap-2">
             {['24h', '7d', '30d', 'all'].map(range => (
@@ -465,9 +555,9 @@ const SuperAdminDashboard = () => {
                 <div className="text-green-400 text-3xl">✅</div>
                 <div className="text-green-400/50 text-sm">Resolved</div>
               </div>
-              <div className="text-4xl font-bold text-white mb-1">{stats.overview.solvedTokens}</div>
+              <div className="text-4xl font-bold text-white mb-1">{stats.overview.resolvedTokens}</div>
               <div className="text-green-300/70 text-sm">
-                {((stats.overview.solvedTokens / stats.overview.totalTokens) * 100 || 0).toFixed(1)}% Success Rate
+                {((stats.overview.resolvedTokens / stats.overview.totalTokens) * 100 || 0).toFixed(1)}% Success Rate
               </div>
             </div>
 
@@ -496,6 +586,7 @@ const SuperAdminDashboard = () => {
           {[
             { id: 'overview', icon: '📊', label: 'Overview' },
             { id: 'analytics', icon: '📈', label: 'Analytics' },
+            { id: 'solutions', icon: '💡', label: 'Solution Directory' },
             { id: 'departments', icon: '🏢', label: 'Departments' },
             { id: 'admins', icon: '👥', label: 'Admin Team' },
             { id: 'users', icon: '👤', label: 'User Management' },
@@ -554,7 +645,7 @@ const SuperAdminDashboard = () => {
                   <PieChart>
                     <Pie
                       data={[
-                        { name: 'Solved', value: analytics.statusDist.solved },
+                        { name: 'Resolved', value: analytics.statusDist.resolved },
                         { name: 'Assigned', value: analytics.statusDist.assigned },
                         { name: 'Pending', value: analytics.statusDist.pending }
                       ]}
@@ -610,6 +701,144 @@ const SuperAdminDashboard = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Solution Directory Tab */}
+        {activeTab === 'solutions' && (
+          <div className="space-y-6">
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-white">💡 Solution Directory</h3>
+                  <p className="text-white/60 text-sm mt-1">Browse resolved tickets with detailed solutions</p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <input
+                    type="text"
+                    placeholder="Search solutions..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                  />
+                  <select
+                    value={filters.department}
+                    onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+                    className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                  >
+                    <option value="all" className="text-gray-900">All Departments</option>
+                    {departments.map(dept => (
+                      <option key={dept._id} value={dept._id} className="text-gray-900">{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Solution Cards */}
+              <div className="space-y-4">
+                {tokens
+                  .filter(t => t.status === 'resolved' && t.solution)
+                  .filter(t => 
+                    (!searchQuery || 
+                    t.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    t.solution?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                    (filters.department === 'all' || t.department?._id === filters.department)
+                  )
+                  .map(token => (
+                    <div key={token._id} className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-green-500/50 transition-all">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="text-xl font-bold text-white">{token.title}</h4>
+                            <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold border border-green-500/50">
+                              ✓ RESOLVED
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-sm text-white/60 mb-3">
+                            <span className="bg-white/10 px-2 py-1 rounded">#{token.tokenNumber || token._id.slice(-8)}</span>
+                            {token.department && (
+                              <span className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded">{token.department.name}</span>
+                            )}
+                            {token.category && (
+                              <span className="bg-purple-500/20 text-purple-400 px-2 py-1 rounded">{token.category}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Problem Section */}
+                        <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">❗</span>
+                            <h5 className="text-lg font-bold text-red-400">Problem</h5>
+                          </div>
+                          <p className="text-white/90 leading-relaxed mb-3">{token.description}</p>
+                          <div className="flex items-center gap-2 text-sm text-white/60">
+                            <span>Reported by:</span>
+                            <span className="text-white font-semibold">{token.createdBy?.name}</span>
+                          </div>
+                        </div>
+
+                        {/* Solution Section */}
+                        <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">✅</span>
+                            <h5 className="text-lg font-bold text-green-400">Solution</h5>
+                          </div>
+                          <p className="text-white/90 leading-relaxed mb-3">{token.solution}</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-white/60">Solved by:</span>
+                              <span className="text-green-400 font-semibold">{token.solvedBy?.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-white/60">Resolution Time:</span>
+                              <span className="text-purple-400 font-semibold">
+                                {token.timeToSolve ? formatTime(token.timeToSolve) : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-white/60">Resolved:</span>
+                              <span className="text-white/80 font-semibold">
+                                {token.solvedAt ? new Date(token.solvedAt).toLocaleDateString() : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Feedback if available */}
+                      {token.feedback?.rating && (
+                        <div className="mt-4 bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/30">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">⭐</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-yellow-400 font-bold">{token.feedback.rating}/5</span>
+                                <span className="text-white/60 text-sm">User Rating</span>
+                              </div>
+                              {token.feedback.comment && (
+                                <p className="text-white/80 text-sm italic">"{token.feedback.comment}"</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {tokens.filter(t => t.status === 'resolved' && t.solution).length === 0 && (
+                  <div className="text-center py-16 bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10">
+                    <div className="text-6xl mb-4">📚</div>
+                    <h3 className="text-2xl font-bold text-white/80 mb-2">No Solutions Yet</h3>
+                    <p className="text-white/60">Resolved tickets with solutions will appear here</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -861,7 +1090,10 @@ const SuperAdminDashboard = () => {
           <div className="space-y-6">
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                <h3 className="text-2xl font-bold text-white">👥 Admin Team Directory</h3>
+                <div>
+                  <h3 className="text-2xl font-bold text-white">👥 Admin Team Management</h3>
+                  <p className="text-white/60 text-sm mt-1">Manage admin profiles and monitor performance</p>
+                </div>
 
                 <div className="flex flex-col md:flex-row gap-3">
                   <input
@@ -882,7 +1114,11 @@ const SuperAdminDashboard = () => {
                     ))}
                   </select>
                   <button
-                    onClick={() => setShowAdminProfileForm(true)}
+                    onClick={() => {
+                      setShowAdminProfileForm(true);
+                      setEditingAdmin(false); // Ensure we are in create mode
+                      setNewAdminProfile({ name: '', email: '', password: '', expertise: [], department: '', categories: [], phone: '', employeeId: '' }); // Reset form
+                    }}
                     className="px-6 py-2 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-lg transition-all shadow-lg whitespace-nowrap"
                   >
                     ➕ New Admin
@@ -890,79 +1126,158 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredAdmins.map(profile => {
-                  const adminStat = analytics?.adminStats.find(s => s.admin._id === profile.user?._id);
+              {/* Admin Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 backdrop-blur-xl rounded-xl p-4 border border-blue-500/30">
+                  <div className="text-blue-400 text-2xl mb-2">👥</div>
+                  <div className="text-2xl font-bold text-white">{users.filter(u => u.role === 'admin').length}</div>
+                  <div className="text-blue-300/70 text-sm">Total Admins</div>
+                </div>
+                <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 backdrop-blur-xl rounded-xl p-4 border border-green-500/30">
+                  <div className="text-green-400 text-2xl mb-2">✅</div>
+                  <div className="text-2xl font-bold text-white">
+                    {analytics?.adminStats.filter(s => s.solved > 0).length || 0}
+                  </div>
+                  <div className="text-green-300/70 text-sm">Active Admins</div>
+                </div>
+                <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 backdrop-blur-xl rounded-xl p-4 border border-purple-500/30">
+                  <div className="text-purple-400 text-2xl mb-2">⚡</div>
+                  <div className="text-2xl font-bold text-white">
+                    {analytics?.adminStats.reduce((sum, s) => sum + s.solved, 0) || 0}
+                  </div>
+                  <div className="text-purple-300/70 text-sm">Total Solved</div>
+                </div>
+                <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 backdrop-blur-xl rounded-xl p-4 border border-yellow-500/30">
+                  <div className="text-yellow-400 text-2xl mb-2">⭐</div>
+                  <div className="text-2xl font-bold text-white">
+                    {analytics?.adminStats.length > 0 
+                      ? (analytics.adminStats.reduce((sum, s) => sum + s.avgRating, 0) / analytics.adminStats.filter(s => s.avgRating > 0).length || 0).toFixed(1)
+                      : '0.0'}
+                  </div>
+                  <div className="text-yellow-300/70 text-sm">Avg Rating</div>
+                </div>
+              </div>
 
-                  return (
-                    <div 
-                      key={profile._id}
-                      onClick={() => {
-                        setSelectedAdmin({ ...profile.user, profile });
-                        setShowAdminDetailModal(true);
-                      }}
-                      className="bg-gradient-to-br from-white/5 to-white/10 rounded-xl p-5 border border-white/20 hover:border-[#ED1B2F]/50 transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-start gap-3 mb-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#ED1B2F] to-[#455185] flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                          {profile.user?.name?.charAt(0)}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-white font-bold text-lg group-hover:text-[#ED1B2F] transition-colors">
-                            {profile.user?.name}
-                          </h4>
-                          <p className="text-white/60 text-sm">{profile.user?.email}</p>
-                          <p className="text-white/40 text-xs mt-1">{profile.department?.name}</p>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteAdminProfile(profile._id);
-                          }}
-                          className="text-red-400 hover:text-red-300 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+              {/* Admin Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/20">
+                      <th className="text-left py-4 px-4 text-white/80 font-semibold">Admin Name</th>
+                      <th className="text-left py-4 px-4 text-white/80 font-semibold">Department</th>
+                      <th className="text-center py-4 px-4 text-white/80 font-semibold">Total Tokens</th>
+                      <th className="text-center py-4 px-4 text-white/80 font-semibold">Solved</th>
+                      <th className="text-center py-4 px-4 text-white/80 font-semibold">Avg Time</th>
+                      <th className="text-center py-4 px-4 text-white/80 font-semibold">Rating</th>
+                      <th className="text-center py-4 px-4 text-white/80 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users
+                      .filter(u => u.role === 'admin')
+                      .filter(u => 
+                        (!searchQuery || 
+                        u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        u.email?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                        (filters.department === 'all' || u.department?._id === filters.department)
+                      )
+                      .map(admin => {
+                        const adminStat = analytics?.adminStats.find(s => s.admin._id === admin._id);
+                        const adminProfile = adminProfiles.find(p => p.user?._id === admin._id);
 
-                      {profile.categories && profile.categories.length > 0 && (
-                        <div className="mb-3">
-                          <div className="flex flex-wrap gap-1">
-                            {profile.categories.slice(0, 2).map((cat, idx) => (
-                              <span key={idx} className="px-2 py-1 bg-[#455185]/20 text-[#455185] border border-[#455185]/30 rounded text-xs">
-                                {cat}
+                        return (
+                          <tr
+                            key={admin._id}
+                            className="border-b border-white/10 hover:bg-white/5 transition-all"
+                          >
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#ED1B2F] to-[#455185] flex items-center justify-center text-white font-bold">
+                                  {admin.name?.charAt(0)}
+                                </div>
+                                <div>
+                                  <div className="text-white font-semibold">{admin.name}</div>
+                                  <div className="text-white/50 text-xs">{admin.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className="text-white/70">{admin.department?.name || 'N/A'}</span>
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-semibold">
+                                {adminStat?.total || 0}
                               </span>
-                            ))}
-                            {profile.categories.length > 2 && (
-                              <span className="px-2 py-1 bg-white/10 text-white/60 rounded text-xs">
-                                +{profile.categories.length - 2}
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm font-semibold">
+                                {adminStat?.solved || 0}
                               </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {adminStat && (
-                        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/10">
-                          <div className="text-center">
-                            <div className="text-blue-400 font-bold text-lg">{adminStat.total}</div>
-                            <div className="text-white/50 text-xs">Total</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-green-400 font-bold text-lg">{adminStat.solved}</div>
-                            <div className="text-white/50 text-xs">Solved</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-yellow-400 font-bold text-lg">
-                              {adminStat.avgRating > 0 ? adminStat.avgRating.toFixed(1) : '-'}
-                            </div>
-                            <div className="text-white/50 text-xs">Rating</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              <span className="text-purple-400 font-semibold text-sm">
+                                {adminStat ? formatTime(adminStat.avgTime) : '-'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-center">
+                              {adminStat?.avgRating > 0 ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <span className="text-yellow-400 font-bold">{adminStat.avgRating.toFixed(1)}</span>
+                                  <span className="text-yellow-400">⭐</span>
+                                </div>
+                              ) : (
+                                <span className="text-white/30">-</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedAdmin({ ...admin, profile: adminProfile });
+                                    setShowAdminDetailModal(true);
+                                  }}
+                                  className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-sm transition-colors"
+                                >
+                                  👁️ View
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (adminProfile) {
+                                      setEditingAdmin(adminProfile); // Use adminProfile as the source for editing
+                                      setNewAdminProfile({
+                                        name: admin.name,
+                                        email: admin.email,
+                                        password: '', // Password should not be pre-filled for security
+                                        expertise: adminProfile.expertise || [],
+                                        department: adminProfile.department?._id || '',
+                                        categories: adminProfile.categories || [], // Assuming categories are relevant for admin profiles
+                                        phone: adminProfile.phone || '',
+                                        employeeId: adminProfile.employeeId || ''
+                                      });
+                                      setShowAdminProfileForm(true);
+                                    }
+                                  }}
+                                  className="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg text-sm transition-colors"
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (adminProfile) {
+                                      deleteAdminProfile(adminProfile._id);
+                                    }
+                                  }}
+                                  className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -975,7 +1290,7 @@ const SuperAdminDashboard = () => {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                 <div>
                   <h3 className="text-2xl font-bold text-white">👤 User Management</h3>
-                  <p className="text-white/60 text-sm mt-1">Manage all users, view details, and control access</p>
+                  <p className="text-white/60 text-sm mt-1">Manage regular users, view details, and control access</p>
                 </div>
 
                 <div className="flex gap-3">
@@ -993,27 +1308,27 @@ const SuperAdminDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 backdrop-blur-xl rounded-xl p-4 border border-blue-500/30">
                   <div className="text-blue-400 text-2xl mb-2">👥</div>
-                  <div className="text-2xl font-bold text-white">{users.length}</div>
+                  <div className="text-2xl font-bold text-white">{users.filter(u => u.role === 'user').length}</div>
                   <div className="text-blue-300/70 text-sm">Total Users</div>
                 </div>
                 <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 backdrop-blur-xl rounded-xl p-4 border border-green-500/30">
                   <div className="text-green-400 text-2xl mb-2">✅</div>
                   <div className="text-2xl font-bold text-white">
-                    {users.filter(u => u.status === 'active' || !u.status).length}
+                    {users.filter(u => u.role === 'user' && (u.status === 'active' || !u.status)).length}
                   </div>
                   <div className="text-green-300/70 text-sm">Active Users</div>
                 </div>
                 <div className="bg-gradient-to-br from-red-500/20 to-red-600/10 backdrop-blur-xl rounded-xl p-4 border border-red-500/30">
                   <div className="text-red-400 text-2xl mb-2">🚫</div>
                   <div className="text-2xl font-bold text-white">
-                    {users.filter(u => u.status === 'suspended').length}
+                    {users.filter(u => u.role === 'user' && u.status === 'suspended').length}
                   </div>
                   <div className="text-red-300/70 text-sm">Suspended</div>
                 </div>
                 <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 backdrop-blur-xl rounded-xl p-4 border border-purple-500/30">
                   <div className="text-purple-400 text-2xl mb-2">❄️</div>
                   <div className="text-2xl font-bold text-white">
-                    {users.filter(u => u.status === 'frozen').length}
+                    {users.filter(u => u.role === 'user' && u.status === 'frozen').length}
                   </div>
                   <div className="text-purple-300/70 text-sm">Frozen</div>
                 </div>
@@ -1025,7 +1340,6 @@ const SuperAdminDashboard = () => {
                   <thead>
                     <tr className="border-b border-white/20">
                       <th className="text-left py-4 px-4 text-white/80 font-semibold">User</th>
-                      <th className="text-left py-4 px-4 text-white/80 font-semibold">Role</th>
                       <th className="text-left py-4 px-4 text-white/80 font-semibold">Department</th>
                       <th className="text-left py-4 px-4 text-white/80 font-semibold">Status</th>
                       <th className="text-left py-4 px-4 text-white/80 font-semibold">Joined</th>
@@ -1034,6 +1348,7 @@ const SuperAdminDashboard = () => {
                   </thead>
                   <tbody>
                     {users
+                      .filter(u => u.role === 'user')
                       .filter(u => 
                         !searchQuery || 
                         u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1054,15 +1369,6 @@ const SuperAdminDashboard = () => {
                                 <div className="text-white/50 text-xs">{userItem.email}</div>
                               </div>
                             </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              userItem.role === 'superadmin' ? 'bg-purple-500/20 text-purple-400' :
-                              userItem.role === 'admin' ? 'bg-blue-500/20 text-blue-400' :
-                              'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {userItem.role}
-                            </span>
                           </td>
                           <td className="py-4 px-4 text-white/70">
                             {userItem.department?.name || <span className="text-white/40">No Department</span>}
@@ -1156,7 +1462,8 @@ const SuperAdminDashboard = () => {
                     <option value="all" className="text-gray-900">All Status</option>
                     <option value="pending" className="text-gray-900">Pending</option>
                     <option value="assigned" className="text-gray-900">Assigned</option>
-                    <option value="solved" className="text-gray-900">Solved</option>
+                    <option value="in-progress" className="text-gray-900">In Progress</option>
+                    <option value="resolved" className="text-gray-900">Resolved</option>
                   </select>
                   <select
                     value={filters.priority}
@@ -1348,45 +1655,51 @@ const SuperAdminDashboard = () => {
 
         {/* Admin Profile Form Modal */}
         {showAdminProfileForm && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAdminProfileForm(false)}>
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => {setShowAdminProfileForm(false); setEditingAdmin(false);}}>
             <div className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-2xl font-bold text-white mb-6">➕ Create Admin Profile</h3>
+              <h3 className="text-2xl font-bold text-white mb-6">
+                {editingAdmin ? '✏️ Edit Admin Profile' : '➕ Create Admin Profile'}
+              </h3>
 
               <form onSubmit={createAdminProfile} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-white/80 mb-2">Name *</label>
+                    <label className="block text-white/80 text-sm mb-2">Name *</label>
                     <input
                       type="text"
                       value={newAdminProfile.name}
                       onChange={(e) => setNewAdminProfile({ ...newAdminProfile, name: e.target.value })}
                       className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
                       required
+                      disabled={editingAdmin}
                     />
                   </div>
                   <div>
-                    <label className="block text-white/80 mb-2">Email *</label>
+                    <label className="block text-white/80 text-sm mb-2">Email *</label>
                     <input
                       type="email"
                       value={newAdminProfile.email}
                       onChange={(e) => setNewAdminProfile({ ...newAdminProfile, email: e.target.value })}
                       className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
                       required
+                      disabled={editingAdmin}
                     />
                   </div>
+                  {!editingAdmin && (
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Password *</label>
+                      <input
+                        type="password"
+                        value={newAdminProfile.password}
+                        onChange={(e) => setNewAdminProfile({ ...newAdminProfile, password: e.target.value })}
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        required
+                        minLength="6"
+                      />
+                    </div>
+                  )}
                   <div>
-                    <label className="block text-white/80 mb-2">Password *</label>
-                    <input
-                      type="password"
-                      value={newAdminProfile.password}
-                      onChange={(e) => setNewAdminProfile({ ...newAdminProfile, password: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
-                      required
-                      minLength="6"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-white/80 mb-2">Employee ID</label>
+                    <label className="block text-white/80 text-sm mb-2">Employee ID</label>
                     <input
                       type="text"
                       value={newAdminProfile.employeeId}
@@ -1395,7 +1708,7 @@ const SuperAdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-white/80 mb-2">Phone *</label>
+                    <label className="block text-white/80 text-sm mb-2">Phone *</label>
                     <input
                       type="tel"
                       value={newAdminProfile.phone}
@@ -1405,12 +1718,13 @@ const SuperAdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-white/80 mb-2">Department *</label>
+                    <label className="block text-white/80 text-sm mb-2">Department *</label>
                     <select
                       value={newAdminProfile.department}
                       onChange={(e) => setNewAdminProfile({ ...newAdminProfile, department: e.target.value, categories: [] })}
                       className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
                       required
+                      disabled={editingAdmin}
                     >
                       <option value="" className="text-gray-900">Select Department</option>
                       {departments.map(dept => (
@@ -1421,7 +1735,7 @@ const SuperAdminDashboard = () => {
                 </div>
 
                 <div>
-                  <label className="block text-white/80 mb-2">Areas of Expertise</label>
+                  <label className="block text-white/80 text-sm mb-2">Areas of Expertise</label>
                   <div className="flex gap-2 mb-2">
                     <input
                       type="text"
@@ -1446,11 +1760,11 @@ const SuperAdminDashboard = () => {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setShowAdminProfileForm(false)} className="flex-1 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors">
+                  <button type="button" onClick={() => {setShowAdminProfileForm(false); setEditingAdmin(false);}} className="flex-1 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors">
                     Cancel
                   </button>
                   <button type="submit" className="flex-1 px-6 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-colors">
-                    Create Admin
+                    {editingAdmin ? 'Update Admin' : 'Create Admin'}
                   </button>
                 </div>
               </form>
@@ -1644,7 +1958,7 @@ const SuperAdminDashboard = () => {
                         <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-4 text-center border border-purple-400/30">
                           <p className="text-purple-300 text-sm mb-2 font-semibold">Time to Resolve</p>
                           <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
-                            {selectedToken.timeToSolve ? formatTime(selectedToken.timeToSolve / (1000 * 60)) : '0m'} {/* Convert ms to minutes */}
+                            {selectedToken.timeToSolve ? formatTime(selectedToken.timeToSolve) : '0m'}
                           </p>
                         </div>
                       </>
@@ -1658,7 +1972,7 @@ const SuperAdminDashboard = () => {
                         <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-xl p-4 text-center border border-yellow-400/30">
                           <p className="text-yellow-300 text-sm mb-2 font-semibold">Elapsed Time</p>
                           <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-400">
-                            {formatTime((Date.now() - new Date(selectedToken.createdAt).getTime()) / (1000 * 60))} {/* Convert ms to minutes */}
+                            {formatTime(Date.now() - new Date(selectedToken.createdAt).getTime())}
                           </p>
                         </div>
                       </>
@@ -1918,30 +2232,260 @@ const SuperAdminDashboard = () => {
           </div>
         )}
 
+        {/* Create Token Modal */}
+        {showCreateTokenModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCreateTokenModal(false)}>
+            <div className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-gradient-to-r from-[#ED1B2F] to-[#455185] p-6 flex justify-between items-center z-10 rounded-t-3xl">
+                <h3 className="text-2xl font-bold text-white">Create Token on Behalf of User</h3>
+                <button onClick={() => setShowCreateTokenModal(false)} className="text-white hover:text-gray-200 text-2xl">✕</button>
+              </div>
+
+              <form onSubmit={createTokenOnBehalf} className="p-6 space-y-6">
+                <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                  <h4 className="text-lg font-bold text-white mb-4">👤 User Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">User Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newToken.userDetails.name}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, name: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={newToken.userDetails.email}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, email: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="user@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Employee Code</label>
+                      <input
+                        type="text"
+                        value={newToken.userDetails.employeeCode}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, employeeCode: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="EMP001"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Company Name</label>
+                      <input
+                        type="text"
+                        value={newToken.userDetails.companyName}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, companyName: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="Acme Corp"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                  <h4 className="text-lg font-bold text-white mb-4">🎫 Token Details</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Title *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newToken.title}
+                        onChange={(e) => setNewToken({...newToken, title: e.target.value})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="Brief description of the issue"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Description *</label>
+                      <textarea
+                        required
+                        value={newToken.description}
+                        onChange={(e) => setNewToken({...newToken, description: e.target.value})}
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] min-h-32"
+                        placeholder="Detailed description of the issue..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Priority</label>
+                        <select
+                          value={newToken.priority}
+                          onChange={(e) => setNewToken({...newToken, priority: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        >
+                          <option value="low" className="text-gray-900">Low</option>
+                          <option value="medium" className="text-gray-900">Medium</option>
+                          <option value="high" className="text-gray-900">High</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Department</label>
+                        <select
+                          value={newToken.department}
+                          onChange={(e) => setNewToken({...newToken, department: e.target.value, category: ''})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        >
+                          <option value="" className="text-gray-900">Select Department</option>
+                          {departments.map(dept => (
+                            <option key={dept._id} value={dept._id} className="text-gray-900">{dept.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {newToken.department && (
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Category</label>
+                        <select
+                          value={newToken.category}
+                          onChange={(e) => setNewToken({...newToken, category: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        >
+                          <option value="" className="text-gray-900">Select Category</option>
+                          {departments.find(d => d._id === newToken.department)?.categories?.map(cat => (
+                            <option key={cat.name} value={cat.name} className="text-gray-900">{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Reason for Creating</label>
+                      <textarea
+                        value={newToken.reason}
+                        onChange={(e) => setNewToken({...newToken, reason: e.target.value})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="Why are you creating this token on behalf of the user?"
+                        rows="2"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateTokenModal(false)}
+                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl font-semibold transition-all shadow-lg"
+                  >
+                    Create Token
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Admin Detail Modal */}
         {showAdminDetailModal && selectedAdmin && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAdminDetailModal(false)}>
-            <div className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-br from-[#1a1f3a] to-[#2a2f4a] rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-start mb-6">
-                <h3 className="text-2xl font-bold text-white">👨‍💼 Admin Profile</h3>
+                <h3 className="text-2xl font-bold text-white">👨‍💼 Admin Profile & Performance</h3>
                 <button onClick={() => setShowAdminDetailModal(false)} className="text-white/60 hover:text-white text-2xl">×</button>
               </div>
 
               <div className="space-y-6">
+                {/* Admin Info */}
                 <div className="flex items-center gap-4">
                   <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#ED1B2F] to-[#455185] flex items-center justify-center text-white text-3xl font-bold shadow-lg">
                     {selectedAdmin.name?.charAt(0)}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="text-2xl font-bold text-white">{selectedAdmin.name}</h4>
                     <p className="text-white/70">{selectedAdmin.email}</p>
-                    <p className="text-white/50 text-sm">{selectedAdmin.department?.name}</p>
+                    <div className="flex gap-2 mt-2">
+                      <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-semibold">
+                        {selectedAdmin.role?.toUpperCase()}
+                      </span>
+                      {selectedAdmin.department && (
+                        <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-semibold">
+                          {selectedAdmin.department.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
+                {/* Profile Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedAdmin.profile?.phone && (
+                    <div className="bg-white/5 rounded-xl p-4">
+                      <p className="text-white/60 text-sm mb-2">Phone</p>
+                      <p className="text-white font-semibold">{selectedAdmin.profile.phone}</p>
+                    </div>
+                  )}
+                  {selectedAdmin.profile?.employeeId && (
+                    <div className="bg-white/5 rounded-xl p-4">
+                      <p className="text-white/60 text-sm mb-2">Employee ID</p>
+                      <p className="text-white font-semibold">{selectedAdmin.profile.employeeId}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Performance Metrics */}
+                {(() => {
+                  const adminStat = analytics?.adminStats.find(s => s.admin._id === selectedAdmin._id);
+                  return adminStat && (
+                    <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-2xl p-6 border border-blue-500/30">
+                      <h5 className="text-xl font-bold text-white mb-4">📊 Performance Metrics</h5>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
+                          <div className="text-blue-400 font-bold text-2xl">{adminStat.total}</div>
+                          <div className="text-white/60 text-xs mt-1">Total Tokens</div>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
+                          <div className="text-green-400 font-bold text-2xl">{adminStat.solved}</div>
+                          <div className="text-white/60 text-xs mt-1">Solved</div>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
+                          <div className="text-purple-400 font-bold text-2xl">{adminStat.working}</div>
+                          <div className="text-white/60 text-xs mt-1">In Progress</div>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-4 text-center">
+                          <div className="text-yellow-400 font-bold text-2xl">
+                            {adminStat.efficiency.toFixed(0)}%
+                          </div>
+                          <div className="text-white/60 text-xs mt-1">Efficiency</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div className="bg-white/10 rounded-xl p-4">
+                          <p className="text-white/60 text-sm mb-2">Average Time to Solve</p>
+                          <p className="text-purple-400 font-bold text-xl">{formatTime(adminStat.avgTime)}</p>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-4">
+                          <p className="text-white/60 text-sm mb-2">Customer Rating</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-yellow-400 font-bold text-xl">
+                              {adminStat.avgRating > 0 ? adminStat.avgRating.toFixed(1) : 'N/A'}
+                            </span>
+                            {adminStat.avgRating > 0 && <span className="text-yellow-400 text-xl">⭐</span>}
+                            <span className="text-white/50 text-sm">({adminStat.feedbackCount} reviews)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Expertise */}
                 {selectedAdmin.profile?.expertise && selectedAdmin.profile.expertise.length > 0 && (
                   <div className="bg-white/5 rounded-xl p-4">
-                    <p className="text-white/60 text-sm mb-2">Expertise</p>
+                    <p className="text-white/60 text-sm mb-2">Areas of Expertise</p>
                     <div className="flex flex-wrap gap-2">
                       {selectedAdmin.profile.expertise.map((exp, idx) => (
                         <span key={idx} className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm">
@@ -1952,6 +2496,7 @@ const SuperAdminDashboard = () => {
                   </div>
                 )}
 
+                {/* Assigned Categories */}
                 {selectedAdmin.profile?.categories && selectedAdmin.profile.categories.length > 0 && (
                   <div className="bg-white/5 rounded-xl p-4">
                     <p className="text-white/60 text-sm mb-2">Assigned Categories</p>

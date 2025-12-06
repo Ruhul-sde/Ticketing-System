@@ -75,6 +75,22 @@ const AdminDashboard = () => {
   const [departments, setDepartments] = useState([]);
   const [selectedToken, setSelectedToken] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newToken, setNewToken] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    department: '',
+    category: '',
+    subCategory: '',
+    reason: '',
+    userDetails: {
+      name: '',
+      email: '',
+      employeeCode: '',
+      companyName: ''
+    }
+  });
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({
     status: 'all',
@@ -84,6 +100,8 @@ const AdminDashboard = () => {
   const [filteredTokens, setFilteredTokens] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('tokens');
+  const [searchQuery, setSearchQuery] = useState('');
   const { API_URL, user } = useAuth();
 
   useEffect(() => {
@@ -206,6 +224,43 @@ const AdminDashboard = () => {
     }
   };
 
+  const createTokenOnBehalf = async (e) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: { 
+          'Authorization': `Bearer ${token}` 
+        }
+      };
+      
+      await axios.post(`${API_URL}/tokens/on-behalf`, newToken, config);
+      
+      setShowCreateModal(false);
+      setNewToken({
+        title: '',
+        description: '',
+        priority: 'medium',
+        department: '',
+        category: '',
+        subCategory: '',
+        reason: '',
+        userDetails: {
+          name: '',
+          email: '',
+          employeeCode: '',
+          companyName: ''
+        }
+      });
+      
+      fetchData();
+      alert('Token created successfully on behalf of user');
+    } catch (error) {
+      console.error('Error creating token:', error);
+      alert(error.response?.data?.message || 'Failed to create token');
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'resolved': return 'bg-green-500/20 text-green-400 border-green-500/50';
@@ -222,6 +277,24 @@ const AdminDashboard = () => {
       case 'medium': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50';
       case 'low': return 'bg-green-500/20 text-green-400 border-green-500/50';
       default: return 'bg-gray-500/20 text-gray-400 border-gray-500/50';
+    }
+  };
+
+  const formatTime = (milliseconds) => {
+    if (!milliseconds || milliseconds === 0) return '0m';
+    
+    const totalMinutes = Math.floor(milliseconds / (1000 * 60));
+    const totalHours = Math.floor(totalMinutes / 60);
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
     }
   };
 
@@ -267,16 +340,25 @@ const AdminDashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <Header3D />
 
-        <div className="mb-8">
-          <h2 className="text-4xl font-bold bg-gradient-to-r from-[#ED1B2F] to-[#455185] bg-clip-text text-transparent">
-            Admin Dashboard
-          </h2>
-          <p className="text-white/60 mt-2">Welcome back, {user?.name}</p>
-          {user?.department && (
-            <p className="text-white/50 mt-1 text-sm">
-              Managing: <span className="text-[#ED1B2F] font-semibold">{departments.find(d => d._id === user.department)?.name || 'Your Department'}</span>
-            </p>
-          )}
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-[#ED1B2F] to-[#455185] bg-clip-text text-transparent">
+              Admin Dashboard
+            </h2>
+            <p className="text-white/60 mt-2">Welcome back, {user?.name}</p>
+            {user?.department && (
+              <p className="text-white/50 mt-1 text-sm">
+                Managing: <span className="text-[#ED1B2F] font-semibold">{departments.find(d => d._id === user.department)?.name || 'Your Department'}</span>
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-6 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+          >
+            <span>➕</span>
+            Create Token for User
+          </button>
         </div>
 
         {stats && (
@@ -295,7 +377,7 @@ const AdminDashboard = () => {
             </div>
             <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
               <h3 className="text-white/60 text-sm mb-2">Resolved</h3>
-              <p className="text-3xl font-bold text-green-400">{stats.overview.resolvedTokens || stats.overview.solvedTokens || 0}</p>
+              <p className="text-3xl font-bold text-green-400">{stats.overview.resolvedTokens || 0}</p>
             </div>
           </div>
         )}
@@ -317,46 +399,70 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 mb-8">
-          <h3 className="text-xl font-bold text-white mb-4">Filter Tokens</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+        {/* Navigation Tabs */}
+        <div className="mb-8 flex gap-2 overflow-x-auto pb-2">
+          {[
+            { id: 'tokens', icon: '🎫', label: 'All Tickets' },
+            { id: 'solutions', icon: '💡', label: 'Solution Directory' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-6 py-3 rounded-xl transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-gradient-to-r from-[#ED1B2F] to-[#455185] text-white shadow-lg transform scale-105'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'
+              }`}
             >
-              <option value="all" className="text-gray-900">All Status</option>
-              <option value="pending" className="text-gray-900">Pending</option>
-              <option value="assigned" className="text-gray-900">Assigned</option>
-              <option value="in-progress" className="text-gray-900">In Progress</option>
-              <option value="resolved" className="text-gray-900">Resolved</option>
-            </select>
-
-            <select
-              value={filters.priority}
-              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-              className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
-            >
-              <option value="all" className="text-gray-900">All Priority</option>
-              <option value="high" className="text-gray-900">High</option>
-              <option value="medium" className="text-gray-900">Medium</option>
-              <option value="low" className="text-gray-900">Low</option>
-            </select>
-
-            <select
-              value={filters.department}
-              onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-              className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
-            >
-              <option value="all" className="text-gray-900">All Departments</option>
-              {departments.map(dept => (
-                <option key={dept._id} value={dept._id} className="text-gray-900">{dept.name}</option>
-              ))}
-            </select>
-          </div>
+              <span className="mr-2">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="grid gap-6">
+        {/* All Tickets Tab */}
+        {activeTab === 'tokens' && (
+          <>
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20 mb-8">
+              <h3 className="text-xl font-bold text-white mb-4">Filter Tokens</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                  className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                >
+                  <option value="all" className="text-gray-900">All Status</option>
+                  <option value="pending" className="text-gray-900">Pending</option>
+                  <option value="assigned" className="text-gray-900">Assigned</option>
+                  <option value="in-progress" className="text-gray-900">In Progress</option>
+                  <option value="resolved" className="text-gray-900">Resolved</option>
+                </select>
+
+                <select
+                  value={filters.priority}
+                  onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+                  className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                >
+                  <option value="all" className="text-gray-900">All Priority</option>
+                  <option value="high" className="text-gray-900">High</option>
+                  <option value="medium" className="text-gray-900">Medium</option>
+                  <option value="low" className="text-gray-900">Low</option>
+                </select>
+
+                <select
+                  value={filters.department}
+                  onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+                  className="px-4 py-2 bg-white/20 border border-white/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                >
+                  <option value="all" className="text-gray-900">All Departments</option>
+                  {departments.map(dept => (
+                    <option key={dept._id} value={dept._id} className="text-gray-900">{dept.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-6">
           {filteredTokens.length === 0 ? (
             <div className="text-center py-16 bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10">
               <div className="text-6xl mb-4">📭</div>
@@ -411,6 +517,302 @@ const AdminDashboard = () => {
             ))
           )}
         </div>
+          </>
+        )}
+
+        {/* Solution Directory Tab */}
+        {activeTab === 'solutions' && (
+          <div className="space-y-6">
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-2xl font-bold text-white">💡 Solution Directory</h3>
+                  <p className="text-white/60 text-sm mt-1">Browse resolved tickets with detailed solutions</p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <input
+                    type="text"
+                    placeholder="Search solutions..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                  />
+                  <select
+                    value={filters.department}
+                    onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+                    className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                  >
+                    <option value="all" className="text-gray-900">All Departments</option>
+                    {departments.map(dept => (
+                      <option key={dept._id} value={dept._id} className="text-gray-900">{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Solution Cards */}
+              <div className="space-y-4">
+                {tokens
+                  .filter(t => t.status === 'resolved' && t.solution)
+                  .filter(t => 
+                    (!searchQuery || 
+                    t.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    t.solution?.toLowerCase().includes(searchQuery.toLowerCase())) &&
+                    (filters.department === 'all' || t.department?._id === filters.department)
+                  )
+                  .map(token => (
+                    <div key={token._id} className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-green-500/50 transition-all">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h4 className="text-xl font-bold text-white">{token.title}</h4>
+                            <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-semibold border border-green-500/50">
+                              ✓ RESOLVED
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-sm text-white/60 mb-3">
+                            <span className="bg-white/10 px-2 py-1 rounded">#{token.tokenNumber || token._id.slice(-8)}</span>
+                            {token.department && (
+                              <span className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded">{token.department.name}</span>
+                            )}
+                            {token.category && (
+                              <span className="bg-purple-500/20 text-purple-400 px-2 py-1 rounded">{token.category}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Problem Section */}
+                        <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/30">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">❗</span>
+                            <h5 className="text-lg font-bold text-red-400">Problem</h5>
+                          </div>
+                          <p className="text-white/90 leading-relaxed mb-3">{token.description}</p>
+                          <div className="flex items-center gap-2 text-sm text-white/60">
+                            <span>Reported by:</span>
+                            <span className="text-white font-semibold">{token.createdBy?.name}</span>
+                          </div>
+                        </div>
+
+                        {/* Solution Section */}
+                        <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/30">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-2xl">✅</span>
+                            <h5 className="text-lg font-bold text-green-400">Solution</h5>
+                          </div>
+                          <p className="text-white/90 leading-relaxed mb-3">{token.solution}</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-white/60">Solved by:</span>
+                              <span className="text-green-400 font-semibold">{token.solvedBy?.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-white/60">Resolution Time:</span>
+                              <span className="text-purple-400 font-semibold">
+                                {token.timeToSolve ? formatTime(token.timeToSolve) : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-white/60">Resolved:</span>
+                              <span className="text-white/80 font-semibold">
+                                {token.solvedAt ? new Date(token.solvedAt).toLocaleDateString() : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Feedback if available */}
+                      {token.feedback?.rating && (
+                        <div className="mt-4 bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/30">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg">⭐</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-yellow-400 font-bold">{token.feedback.rating}/5</span>
+                                <span className="text-white/60 text-sm">User Rating</span>
+                              </div>
+                              {token.feedback.comment && (
+                                <p className="text-white/80 text-sm italic">"{token.feedback.comment}"</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {tokens.filter(t => t.status === 'resolved' && t.solution).length === 0 && (
+                  <div className="text-center py-16 bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10">
+                    <div className="text-6xl mb-4">📚</div>
+                    <h3 className="text-2xl font-bold text-white/80 mb-2">No Solutions Yet</h3>
+                    <p className="text-white/60">Resolved tickets with solutions will appear here</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCreateModal(false)}>
+            <div className="bg-gradient-to-br from-gray-900 to-[#1a1f3a] rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-gradient-to-r from-[#ED1B2F] to-[#455185] p-6 flex justify-between items-center z-10">
+                <h3 className="text-2xl font-bold text-white">Create Token on Behalf of User</h3>
+                <button onClick={() => setShowCreateModal(false)} className="text-white hover:text-gray-200 text-2xl">✕</button>
+              </div>
+
+              <form onSubmit={createTokenOnBehalf} className="p-6 space-y-6">
+                <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                  <h4 className="text-lg font-bold text-white mb-4">User Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">User Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newToken.userDetails.name}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, name: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Email *</label>
+                      <input
+                        type="email"
+                        required
+                        value={newToken.userDetails.email}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, email: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="user@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Employee Code</label>
+                      <input
+                        type="text"
+                        value={newToken.userDetails.employeeCode}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, employeeCode: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="EMP001"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Company Name</label>
+                      <input
+                        type="text"
+                        value={newToken.userDetails.companyName}
+                        onChange={(e) => setNewToken({...newToken, userDetails: {...newToken.userDetails, companyName: e.target.value}})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="Acme Corp"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                  <h4 className="text-lg font-bold text-white mb-4">Token Details</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Title *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newToken.title}
+                        onChange={(e) => setNewToken({...newToken, title: e.target.value})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="Brief description of the issue"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Description *</label>
+                      <textarea
+                        required
+                        value={newToken.description}
+                        onChange={(e) => setNewToken({...newToken, description: e.target.value})}
+                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F] min-h-32"
+                        placeholder="Detailed description of the issue..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Priority</label>
+                        <select
+                          value={newToken.priority}
+                          onChange={(e) => setNewToken({...newToken, priority: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        >
+                          <option value="low" className="text-gray-900">Low</option>
+                          <option value="medium" className="text-gray-900">Medium</option>
+                          <option value="high" className="text-gray-900">High</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Department</label>
+                        <select
+                          value={newToken.department}
+                          onChange={(e) => setNewToken({...newToken, department: e.target.value, category: ''})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        >
+                          <option value="" className="text-gray-900">Select Department</option>
+                          {departments.map(dept => (
+                            <option key={dept._id} value={dept._id} className="text-gray-900">{dept.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    {newToken.department && (
+                      <div>
+                        <label className="block text-white/80 text-sm mb-2">Category</label>
+                        <select
+                          value={newToken.category}
+                          onChange={(e) => setNewToken({...newToken, category: e.target.value})}
+                          className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        >
+                          <option value="" className="text-gray-900">Select Category</option>
+                          {departments.find(d => d._id === newToken.department)?.categories?.map(cat => (
+                            <option key={cat.name} value={cat.name} className="text-gray-900">{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-white/80 text-sm mb-2">Reason for Creating</label>
+                      <textarea
+                        value={newToken.reason}
+                        onChange={(e) => setNewToken({...newToken, reason: e.target.value})}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#ED1B2F]"
+                        placeholder="Why are you creating this token on behalf of the user?"
+                        rows="2"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl font-semibold transition-all"
+                  >
+                    Create Token
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {showModal && selectedToken && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
@@ -464,7 +866,7 @@ const AdminDashboard = () => {
                       <div className="col-span-2">
                         <span className="text-white/60">Time to Resolve:</span>
                         <span className="text-purple-400 font-semibold ml-2">
-                          {Math.floor(selectedToken.timeToSolve / 60)}h {selectedToken.timeToSolve % 60}m
+                          {formatTime(selectedToken.timeToSolve)}
                         </span>
                       </div>
                     )}
