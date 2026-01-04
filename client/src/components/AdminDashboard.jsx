@@ -512,7 +512,7 @@ const AdminDashboard = () => {
 
         <div className="mb-8 flex justify-between items-start">
           <div>
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-[#ED1B2F] to-[#455185] bg-clip-text text-transparent">
+            <h2 className="text-4xl font-bold bg-linear-to-r from-[#ED1B2F] to-[#455185] bg-clip-text text-transparent">
               Admin Dashboard
             </h2>
             <p className="text-white/60 mt-2">Welcome back, {user?.name}</p>
@@ -524,7 +524,7 @@ const AdminDashboard = () => {
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+            className="px-6 py-3 bg-linear-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
           >
             <span>➕</span>
             Create Token for User
@@ -663,7 +663,7 @@ const AdminDashboard = () => {
                           </span>
                         </div>
                         <div className="mb-2">
-                          <span className="bg-gradient-to-r from-[#ED1B2F]/20 to-[#455185]/20 text-white px-3 py-1 rounded-lg text-sm font-mono font-bold border border-white/20">
+                          <span className="bg-linear-to-r from-[#ED1B2F]/20 to-[#455185]/20 text-white px-3 py-1 rounded-lg text-sm font-mono font-bold border border-white/20">
                             #{token.ticketNumber || token._id.slice(-8)}
                           </span>
                         </div>
@@ -827,7 +827,7 @@ const AdminDashboard = () => {
                         }}
                         className={`px-3 py-1.5 rounded-lg text-sm transition-all flex items-center gap-1 ${
                           solutionSortBy === sort.id
-                            ? 'bg-gradient-to-r from-[#ED1B2F] to-[#455185] text-white'
+                            ? 'bg-linear-to-r from-[#ED1B2F] to-[#455185] text-white'
                             : 'bg-white/10 text-white/60 hover:bg-white/20'
                         }`}
                       >
@@ -982,7 +982,7 @@ const AdminDashboard = () => {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCreateModal(false)}>
             <div className="bg-gradient-to-br from-gray-900 to-[#1a1f3a] rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="sticky top-0 bg-gradient-to-r from-[#ED1B2F] to-[#455185] p-6 flex justify-between items-center z-10">
+              <div className="sticky top-0 bg-linear-to-r from-[#ED1B2F] to-[#455185] p-6 flex justify-between items-center z-10">
                 <h3 className="text-2xl font-bold text-white">Create Token on Behalf of User</h3>
                 <button onClick={() => setShowCreateModal(false)} className="text-white hover:text-gray-200 text-2xl">✕</button>
               </div>
@@ -1157,7 +1157,7 @@ const AdminDashboard = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl font-semibold transition-all"
+                    className="flex-1 py-3 bg-linear-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl font-semibold transition-all"
                   >
                     Create Token
                   </button>
@@ -1170,7 +1170,7 @@ const AdminDashboard = () => {
         {showModal && selectedTicket && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
             <div className="bg-gradient-to-br from-gray-900 to-[#1a1f3a] rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="sticky top-0 bg-gradient-to-r from-[#ED1B2F] to-[#455185] p-6 flex justify-between items-center z-10">
+              <div className="sticky top-0 bg-linear-to-r from-[#ED1B2F] to-[#455185] p-6 flex justify-between items-center z-10">
                 <h3 className="text-2xl font-bold text-white">Token Details</h3>
                 <button onClick={() => setShowModal(false)} className="text-white hover:text-gray-200 text-2xl">✕</button>
               </div>
@@ -1179,7 +1179,7 @@ const AdminDashboard = () => {
                 <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
                   <div className="flex items-center gap-3 mb-4">
                     <h4 className="text-xl font-bold text-white">{selectedTicket.title}</h4>
-                    <span className="bg-gradient-to-r from-[#ED1B2F]/20 to-[#455185]/20 text-white px-3 py-1 rounded-lg text-sm font-mono font-bold border border-white/20">
+                    <span className="bg-linear-to-r from-[#ED1B2F]/20 to-[#455185]/20 text-white px-3 py-1 rounded-lg text-sm font-mono font-bold border border-white/20">
                       #{selectedTicket.ticketNumber || selectedTicket._id.slice(-8)}
                     </span>
                   </div>
@@ -1266,7 +1266,7 @@ const AdminDashboard = () => {
                           await updateticketstatus(selectedTicket._id, newStatus);
                         }
                       }}
-                      className="w-full py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01626] text-white rounded-xl font-semibold transition-all"
+                      className="w-full py-3 bg-linear-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01626] text-white rounded-xl font-semibold transition-all"
                     >
                       Update Status
                     </button>
@@ -1350,7 +1350,7 @@ const AdminDashboard = () => {
                         }
                       }
                     }}
-                    className="mt-3 w-full py-3 bg-gradient-to-r from-[#455185] to-[#3a456f] hover:from-[#3a456f] hover:to-[#2f3859] text-white rounded-xl font-semibold transition-all"
+                    className="mt-3 w-full py-3 bg-linear-to-r from-[#455185] to-[#3a456f] hover:from-[#3a456f] hover:to-[#2f3859] text-white rounded-xl font-semibold transition-all"
                   >
                     Submit Remark
                   </button>

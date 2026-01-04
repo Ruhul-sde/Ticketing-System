@@ -3,47 +3,74 @@ import User from '../models/User.js';
 
 export const authenticate = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // ✅ Read Authorization header safely
+    const authHeader = req.header('Authorization');
+    const jwtToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.replace('Bearer ', '')
+      : null;
 
-    if (!token) {
-      return res.status(401).json({ message: 'No authentication token, access denied' });
+    if (!jwtToken) {
+      return res.status(401).json({
+        message: 'Authentication required. Please login again.'
+      });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // ✅ Verify JWT
+    const decoded = jwt.verify(jwtToken, process.env.JWT_SECRET);
+
+    if (!decoded?.userId) {
+      return res.status(401).json({
+        message: 'Invalid session. Please login again.'
+      });
+    }
+
+    // ✅ Load user
     const user = await User.findById(decoded.userId).populate('department');
 
     if (!user) {
-      return res.status(401).json({ message: 'Token is not valid' });
+      return res.status(401).json({
+        message: 'User not found. Please login again.'
+      });
     }
 
-    // Check if user is suspended or frozen
+    // ✅ Account status checks
     if (user.status === 'suspended') {
-      return res.status(403).json({ message: 'Your account has been suspended. Please contact administrator.' });
+      return res.status(403).json({
+        message: 'Your account has been suspended. Please contact administrator.'
+      });
     }
 
     if (user.status === 'frozen') {
-      return res.status(403).json({ message: 'Your account has been frozen. Please contact administrator.' });
+      return res.status(403).json({
+        message: 'Your account has been frozen. Please contact administrator.'
+      });
     }
 
-    console.log('Authenticated user:', {
+    // ✅ Attach user to request
+    req.user = user;
+
+    // 🔍 Optional debug log (safe)
+    console.log('AUTH OK:', {
       email: user.email,
       role: user.role,
-      status: user.status,
-      deptId: user.department?._id?.toString() || 'none',
-      deptName: user.department?.name || 'none'
+      department: user.department?.name || 'none'
     });
 
-    req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Token is not valid' });
+    console.error('AUTH ERROR:', error.message);
+    return res.status(401).json({
+      message: 'Session expired or invalid. Please login again.'
+    });
   }
 };
 
 export const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Access denied' });
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        message: 'You do not have permission to perform this action.'
+      });
     }
     next();
   };

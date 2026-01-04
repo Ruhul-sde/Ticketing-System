@@ -798,13 +798,13 @@ const SuperAdminDashboard = () => {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => setShowCreateTokenModal(true)}
-              className="px-6 py-3 bg-gradient-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-all shadow-lg hover:shadow-2xl transform hover:scale-105 flex items-center gap-2 font-semibold group"
-            >
-              <span className="text-xl group-hover:rotate-90 transition-transform">➕</span>
-              Create Token for User
-            </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-6 py-3 bg-linear-to-r from-[#ED1B2F] to-[#d41829] hover:from-[#d41829] hover:to-[#c01625] text-white rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+          >
+            <span>➕</span>
+            Create Ticket for User
+          </button>
 
             {/* Time Range Selector with Icons */}
             <div className="flex gap-2 bg-white/5 backdrop-blur-xl rounded-xl p-1 border border-white/10">
