@@ -32,7 +32,22 @@ const companySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  averageSupportTime: {
+  status: {
+    type: String,
+    enum: ['active', 'suspended', 'frozen'],
+    default: 'active'
+  },
+  statusReason: {
+    type: String
+  },
+  statusChangedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  statusChangedAt: {
+    type: Date
+  },
+  createdAt: {
     type: Number,
     default: 0
   },

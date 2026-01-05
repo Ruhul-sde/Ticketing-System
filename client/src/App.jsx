@@ -1,21 +1,28 @@
-
-import React, { useState, useEffect } from 'react';
+// App.jsx
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import UserDashboard from './components/UserDashboard';
+import UserDashboardPage from './pages/UserDashboardPage'; // Updated import
 import AdminDashboard from './components/AdminDashboard';
-import SuperAdminDashboard from './components/SuperAdminDashboard';
+import SuperAdminDashboardPage from './pages/SuperAdminDashboardPage';
 import Navbar from './components/Navbar';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SuperAdminDashboardProvider } from './context/SuperAdminContext';
+import { UserDashboardProvider } from './context/UserDashboardContext'; // Add this import
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#455185] to-[#ED1B2F]">
-      <div className="text-white text-2xl">Loading...</div>
-    </div>;
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-[#455185] to-[#ED1B2F]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-white text-lg">Loading dashboard...</div>
+        </div>
+      </div>
+    );
   }
   
   if (!user) {
@@ -23,34 +30,80 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
   
   if (allowedRoles && !allowedRoles.includes(user.role)) {
+    // Redirect based on user role
+    if (user.role === 'user') return <Navigate to="/user" />;
+    if (user.role === 'admin') return <Navigate to="/admin" />;
+    if (user.role === 'superadmin') return <Navigate to="/superadmin" />;
     return <Navigate to="/" />;
   }
   
   return children;
 };
 
+// SuperAdmin wrapper component
+const SuperAdminWrapper = () => (
+  <SuperAdminDashboardProvider>
+    <SuperAdminDashboardPage />
+  </SuperAdminDashboardProvider>
+);
+
+// User wrapper component
+const UserWrapper = () => (
+  <UserDashboardProvider>
+    <UserDashboardPage />
+  </UserDashboardProvider>
+);
+
 const AppRoutes = () => {
   const { user } = useAuth();
 
+  // Determine default route based on user role
+  const getDefaultRoute = () => {
+    if (!user) return '/login';
+    
+    switch (user.role) {
+      case 'user':
+        return '/user';
+      case 'admin':
+        return '/admin';
+      case 'superadmin':
+        return '/superadmin';
+      default:
+        return '/';
+    }
+  };
+
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+      {/* Redirect to appropriate dashboard based on role */}
+      <Route 
+        path="/" 
+        element={<Navigate to={getDefaultRoute()} />} 
+      />
+      
+      <Route 
+        path="/login" 
+        element={user ? <Navigate to={getDefaultRoute()} /> : <Login />} 
+      />
+      
       <Route
-        path="/"
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         }
       />
+      
       <Route
         path="/user"
         element={
           <ProtectedRoute allowedRoles={['user']}>
-            <UserDashboard />
+            <UserWrapper /> {/* Use the wrapper */}
           </ProtectedRoute>
         }
       />
+      
       <Route
         path="/admin"
         element={
@@ -59,11 +112,12 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      
       <Route
         path="/superadmin"
         element={
           <ProtectedRoute allowedRoles={['superadmin']}>
-            <SuperAdminDashboard />
+            <SuperAdminWrapper />
           </ProtectedRoute>
         }
       />

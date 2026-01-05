@@ -1,19 +1,34 @@
-
 import mongoose from 'mongoose';
 
-const categorySchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
+/**
+ * Category Schema (Embedded)
+ */
+const categorySchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true
+      // ❌ no unique:true here (MongoDB does not support unique in subdocuments properly)
+    },
+    description: {
+      type: String
+    },
+    subCategories: [
+      {
+        type: String
+      }
+    ],
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   },
-  description: {
-    type: String
-  },
-  subCategories: [{
-    type: String
-  }]
-}, { _id: true });
+  { _id: true }
+);
 
+/**
+ * Department Schema
+ */
 const departmentSchema = new mongoose.Schema({
   name: {
     type: String,

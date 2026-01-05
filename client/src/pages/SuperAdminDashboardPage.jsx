@@ -1,9 +1,14 @@
-
+// pages/SuperAdminDashboardPage.jsx
 import React from 'react';
-import SuperAdminDashboard from '../components/SuperAdminDashboard';
+import { SuperAdminDashboardProvider } from '../context/SuperAdminContext';
+import SuperAdminDashboard from '../components/super-admin/SuperAdminDashboard';
 
 const SuperAdminDashboardPage = () => {
-  return <SuperAdminDashboard />;
+  return (
+    <SuperAdminDashboardProvider>
+      <SuperAdminDashboard />
+    </SuperAdminDashboardProvider>
+  );
 };
 
 export default SuperAdminDashboardPage;

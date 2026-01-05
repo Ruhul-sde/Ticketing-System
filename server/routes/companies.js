@@ -144,11 +144,19 @@ router.post('/refresh', authenticate, authorize('superadmin'), async (req, res) 
  */
 router.patch('/:id', authenticate, authorize('superadmin'), async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, status, statusReason } = req.body;
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (status) {
+      updateData.status = status;
+      updateData.statusReason = statusReason;
+      updateData.statusChangedBy = req.user._id;
+      updateData.statusChangedAt = new Date();
+    }
 
     const company = await Company.findByIdAndUpdate(
       req.params.id,
-      { name },
+      updateData,
       { new: true }
     );
 

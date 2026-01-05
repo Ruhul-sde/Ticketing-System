@@ -1,9 +1,14 @@
-
+// pages/UserDashboardPage.jsx
 import React from 'react';
-import UserDashboard from '../components/UserDashboard';
+import { UserDashboardProvider } from '../context/UserDashboardContext';
+import UserDashboard from '../components/user-dashboard/UserDashboard';
 
 const UserDashboardPage = () => {
-  return <UserDashboard />;
+  return (
+    <UserDashboardProvider>
+      <UserDashboard />
+    </UserDashboardProvider>
+  );
 };
 
 export default UserDashboardPage;
