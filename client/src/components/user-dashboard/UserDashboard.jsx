@@ -5,7 +5,6 @@ import { useUserDashboard } from '../../context/UserDashboardContext';
 import InteractiveHeader from './InteractiveHeader';
 import UserDashboardContent from './UserDashboardContent';
 import TicketDetailModal from './TicketDetailModal';
-// Remove ErrorDisplay and LoadingScreen imports for now
 
 const UserDashboard = () => {
   const { user } = useAuth();
@@ -18,9 +17,15 @@ const UserDashboard = () => {
     activeTicket
   } = useUserDashboard();
 
+  // SIMPLE and RELIABLE: Fetch data whenever user changes
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    console.log('UserDashboard - User state:', user ? user.email : 'No user');
+    
+    if (user) {
+      console.log('Fetching dashboard data...');
+      fetchDashboardData();
+    }
+  }, [user, fetchDashboardData]); // Re-fetch when user changes
 
   // Show loading state
   if (loading) {

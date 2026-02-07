@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -40,62 +40,57 @@ export const AuthProvider = ({ children }) => {
   axios.defaults.timeout = 10000;
   axios.defaults.baseURL = API_URL;
 
-  useEffect(() => {
+  const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
-    console.log('Auth token check:', token ? 'Token exists' : 'No token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchUser();
-    } else {
+    console.log('Auth check - Token exists:', !!token);
+    
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.get('/auth/me');
+      console.log('Auth check successful:', response.data.user.email);
+      setUser(response.data.user);
+    } catch (error) {
+      console.error("Authentication check failed:", error.response?.status || error.message);
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+      setUser(null);
+    } finally {
       setLoading(false);
     }
   }, []);
 
-  // Function to check authentication status, used initially and potentially on other events
-  const checkAuth = async () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const response = await axios.get('/auth/me');
-        setUser(response.data.user);
-        setLoading(false);
-      } catch (error) {
-        console.error("Authentication check failed:", error);
-        localStorage.removeItem('token');
-        delete axios.defaults.headers.common['Authorization'];
-        setUser(null);
-        setLoading(false);
-      }
-    } else {
-      setLoading(false);
-    }
-  };
-
-
-  const fetchUser = async () => {
-    try {
-      // The token is now automatically included by the interceptor
-      const response = await axios.get('/auth/me');
-      setUser(response.data.user);
-    } catch (error) {
-      localStorage.removeItem('token');
-      // The interceptor will handle removing the header if needed, but we can explicitly clear it here too if the token itself is invalid.
-      delete axios.defaults.headers.common['Authorization'];
-      setUser(null); // Ensure user is cleared if fetch fails
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Initial auth check
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const login = async (email, password) => {
     try {
+      setLoading(true);
+      console.log('Attempting login for:', email);
+      
       const response = await axios.post('/auth/login', { email, password });
+      
       localStorage.setItem('token', response.data.token);
-      // Explicitly set the header for the next requests
+      console.log('Login successful, token stored');
+      
+      // IMPORTANT: Update axios headers immediately
       axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      
+      // Update user state immediately with response data
       setUser(response.data.user);
+      console.log('User state updated:', response.data.user.email);
+      
+      setLoading(false);
       return response.data;
     } catch (error) {
+      setLoading(false);
       if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
         throw new Error('Cannot connect to server. Please check if the server is running.');
       }
@@ -107,12 +102,14 @@ export const AuthProvider = ({ children }) => {
     try {
       await axios.post('/auth/logout');
     } catch (error) {
-      console.error("Logout failed:", error);
-      // Continue with local cleanup even if logout API call fails
+      console.error("Logout API call failed:", error);
     } finally {
+      // Always clear local state regardless of API call
+      console.log('Clearing auth state...');
       localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization']; // Ensure header is cleared client-side as well
+      delete axios.defaults.headers.common['Authorization'];
       setUser(null);
+      setLoading(false);
     }
   };
 
@@ -120,24 +117,33 @@ export const AuthProvider = ({ children }) => {
     await axios.post('/auth/register', userData);
   };
 
+  // Keep-alive ping (optional, can be removed if causing issues)
   useEffect(() => {
-    checkAuth();
-
-    // Keep-alive ping every 30 seconds to prevent server disconnection
     const keepAlive = setInterval(async () => {
-      try {
-        await axios.get(`${API_URL.replace('/api', '')}/ping`);
-      } catch (error) {
-        // Silently fail - server might be restarting
-        console.debug('Keep-alive ping failed:', error.message);
+      if (user) {
+        try {
+          await axios.get(`${API_URL.replace('/api', '')}/ping`);
+        } catch (error) {
+          console.debug('Keep-alive ping failed:', error.message);
+        }
       }
     }, 30000);
 
     return () => clearInterval(keepAlive);
-  }, []);
+  }, [user, API_URL]);
+
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    register,
+    API_URL,
+    checkAuth // Export checkAuth if needed elsewhere
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, API_URL }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,7 +8,10 @@ import {
   TagIcon,
   StarIcon,
   ChatBubbleLeftRightIcon,
-  PaperClipIcon
+  PaperClipIcon,
+  DocumentIcon,
+  PhotoIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 import axios from 'axios';
@@ -75,6 +78,42 @@ const TicketDetailModal = ({ ticket, onClose }) => {
   };
 
   const canGiveFeedback = ticket.status === 'resolved' && !feedbackSubmitted;
+
+  // Get attachments from the ticket
+  // Check multiple possible locations where attachments might be stored
+  const getAttachments = () => {
+    // Try different possible property names
+    return ticket.attachments || ticket.files || ticket.documents || [];
+  };
+
+  const attachments = getAttachments();
+
+  // Get file icon based on file type
+  const getFileIcon = (fileName) => {
+    if (!fileName) return <DocumentIcon className="w-5 h-5 text-[#455185]" />;
+    
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(extension)) {
+      return <PhotoIcon className="w-5 h-5 text-[#455185]" />;
+    } else if (['pdf'].includes(extension)) {
+      return <DocumentTextIcon className="w-5 h-5 text-[#455185]" />;
+    } else if (['doc', 'docx'].includes(extension)) {
+      return <DocumentTextIcon className="w-5 h-5 text-[#455185]" />;
+    } else if (['xls', 'xlsx'].includes(extension)) {
+      return <DocumentTextIcon className="w-5 h-5 text-[#455185]" />;
+    }
+    
+    return <DocumentIcon className="w-5 h-5 text-[#455185]" />;
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (!bytes) return 'N/A';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
@@ -312,33 +351,70 @@ const TicketDetailModal = ({ ticket, onClose }) => {
             </div>
           )}
 
-          {/* Attachments */}
-          {ticket.attachments?.length > 0 && (
-            <div>
-              <h3 className="text-lg font-bold text-white mb-4">Attachments</h3>
+          {/* Attachments Section - FIXED */}
+          {attachments.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-white">Attachments</h3>
+                <PaperClipIcon className="w-5 h-5 text-white/60" />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {ticket.attachments.map((attachment, index) => (
-                  <div key={index} className="bg-white/5 p-4 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <PaperClipIcon className="w-5 h-5 text-[#455185]" />
-                      <div className="min-w-0">
-                        <p className="text-white truncate">{attachment.filename || attachment.name}</p>
-                        <p className="text-xs text-white/40">
-                          {new Date(attachment.uploadedAt).toLocaleDateString()}
-                        </p>
+                {attachments.map((attachment, index) => {
+                  const fileName = attachment.filename || attachment.name || attachment.url?.split('/').pop() || 'File';
+                  const fileUrl = attachment.url || attachment.path || '#';
+                  const uploadDate = attachment.uploadedAt || attachment.createdAt || ticket.createdAt;
+                  const fileSize = attachment.size || attachment.fileSize;
+                  
+                  return (
+                    <div key={index} className="bg-white/5 p-4 rounded-xl hover:bg-white/10 transition-colors border border-white/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex-shrink-0">
+                            {getFileIcon(fileName)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-white truncate font-medium">{fileName}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                              {fileSize && (
+                                <span className="text-xs text-white/40">
+                                  {formatFileSize(fileSize)}
+                                </span>
+                              )}
+                              <span className="text-xs text-white/40">
+                                {new Date(uploadDate).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <a 
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-3 px-3 py-1.5 bg-[#455185]/20 hover:bg-[#455185]/30 text-[#455185] font-medium text-sm rounded-lg transition-colors whitespace-nowrap"
+                          onClick={(e) => {
+                            if (fileUrl === '#') {
+                              e.preventDefault();
+                              alert('No download link available for this file');
+                            }
+                          }}
+                        >
+                          Download
+                        </a>
                       </div>
                     </div>
-                    <a 
-                      href={attachment.url || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#455185] hover:text-[#ED1B2F] font-medium text-sm whitespace-nowrap"
-                    >
-                      Download
-                    </a>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+            </div>
+          )}
+
+          {/* Show message if no attachments but there might be in other formats */}
+          {!attachments.length > 0 && ticket.comments?.some(comment => comment.attachments) && (
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-white mb-4">Attachments in Comments</h3>
+              <p className="text-white/60">
+                Check comments for attached files. Some files may be included in comment sections.
+              </p>
             </div>
           )}
         </div>
