@@ -27,11 +27,11 @@ import { fileURLToPath } from 'url';
 // Routes - REMOVE userDashboardRoutes import
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
-import departmentRoutes from './routes/departments.js';
+import departmentRoutes from './routes/departments/department.routes.js';
 import dashboardRoutes from './routes/dashboard.js';
 import adminProfileRoutes from './routes/adminProfiles.js';
 import companyRoutes from './routes/companies.js';
-import ticketRoutes from './routes/tickets.js';
+import ticketRoutes from './routes/tickets/index.js';
 import timeTrackingRoutes from './routes/timeTracking.js';
 // REMOVE: import userDashboardRoutes from './routes/userDashboard.js'; // Remove this
 
