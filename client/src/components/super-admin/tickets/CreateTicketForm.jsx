@@ -15,7 +15,9 @@ const CreateTicketForm = ({
   departments,
   companyUsers,
   departmentCategories,
-  loading
+  loading,
+  onCompanyChange,  // Add these callback props
+  onDepartmentChange // Add these callback props
 }) => {
   const [formData, setFormData] = useState({
     companyId: '',
@@ -50,6 +52,22 @@ const CreateTicketForm = ({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Trigger company change callback
+    if (name === 'companyId') {
+      setFormData(prev => ({ ...prev, userId: '' })); // Reset user when company changes
+      if (onCompanyChange) {
+        onCompanyChange(value);
+      }
+    }
+    
+    // Trigger department change callback
+    if (name === 'departmentId') {
+      setFormData(prev => ({ ...prev, category: '' })); // Reset category when department changes
+      if (onDepartmentChange) {
+        onDepartmentChange(value);
+      }
+    }
   };
 
   const handleFileSelect = (files) => {
@@ -61,7 +79,7 @@ const CreateTicketForm = ({
                          'application/zip', 'application/x-zip-compressed'];
       const maxSize = 10 * 1024 * 1024; // 10MB
       
-      if (!validTypes.includes(file.type)) {
+      if (!validTypes.includes(file.type) && file.type) {
         alert(`File ${file.name} has invalid type. Only images, documents, and archives are allowed.`);
         return false;
       }
@@ -79,7 +97,7 @@ const CreateTicketForm = ({
       name: file.name,
       size: file.size,
       type: file.type,
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      preview: file.type?.startsWith('image/') ? URL.createObjectURL(file) : null,
       id: Date.now() + Math.random().toString(36).substr(2, 9)
     }));
 
@@ -107,28 +125,39 @@ const CreateTicketForm = ({
            (departmentCategories.length === 0 || formData.category);
   };
 
+  // Debug logging
+  console.log('CreateTicketForm props:', {
+    companies: companies?.length,
+    departments: departments?.length,
+    companyUsers: companyUsers?.length,
+    departmentCategories: departmentCategories?.length,
+    selectedCompany: formData.companyId,
+    selectedDept: formData.departmentId
+  });
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Create New Ticket" size="xl">
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Dropdown
             label="Company"
-            options={companies.map(c => ({ value: c._id, label: c.name }))}
+            options={companies?.map(c => ({ value: c._id, label: c.name })) || []}
             value={formData.companyId}
-            onChange={(e) => setFormData(prev => ({ ...prev, companyId: e.target.value, userId: '' }))}
+            onChange={handleChange}
+            name="companyId"
             placeholder="Select Company"
             required
           />
           
           <Dropdown
             label="User"
-            options={companyUsers.map(u => ({ value: u._id, label: `${u.name} (${u.email})` }))}
+            options={companyUsers?.map(u => ({ value: u._id, label: `${u.name} (${u.email})` })) || []}
             value={formData.userId}
             onChange={handleChange}
             name="userId"
             placeholder={!formData.companyId ? 'Select company first' : 
-                        companyUsers.length === 0 ? 'No users found' : 'Select User'}
-            disabled={!formData.companyId || companyUsers.length === 0}
+                        companyUsers?.length === 0 ? 'No users found in this company' : 'Select User'}
+            disabled={!formData.companyId || companyUsers?.length === 0}
             required
           />
         </div>
@@ -136,24 +165,30 @@ const CreateTicketForm = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Dropdown
             label="Department"
-            options={departments.map(d => ({ value: d._id, label: d.name }))}
+            options={departments?.map(d => ({ value: d._id, label: d.name })) || []}
             value={formData.departmentId}
-            onChange={(e) => setFormData(prev => ({ ...prev, departmentId: e.target.value, category: '' }))}
+            onChange={handleChange}
+            name="departmentId"
             placeholder="Select Department"
             required
           />
           
           <Dropdown
             label="Category"
-            options={departmentCategories.map(c => ({ value: c, label: c }))}
+            options={departmentCategories?.map(c => ({ value: c, label: c })) || []}
             value={formData.category}
             onChange={handleChange}
             name="category"
             placeholder={!formData.departmentId ? 'Select department first' : 
-                        departmentCategories.length === 0 ? 'No categories' : 'Select Category'}
-            disabled={!formData.departmentId || departmentCategories.length === 0}
-            required={departmentCategories.length > 0}
+                        departmentCategories?.length === 0 ? 'No categories available' : 'Select Category'}
+            disabled={!formData.departmentId || departmentCategories?.length === 0}
+            required={departmentCategories?.length > 0}
           />
+          {formData.departmentId && departmentCategories?.length === 0 && (
+            <p className="text-xs text-yellow-400/70 mt-1">
+              This department has no categories configured
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

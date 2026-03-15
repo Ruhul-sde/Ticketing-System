@@ -3,7 +3,7 @@ import Modal from '../../ui/Modal';
 import Button from '../../ui/Button';
 import Badge from '../../ui/Badge';
 import { getStatusColor, getPriorityColor } from '../../../constants/theme';
-import { getFileIcon, getSupportingDocIcon, formatFileSize } from '../../../utils/fileUtils';
+import { getFileIcon, getSupportingDocIcon, formatFileSize } from '../../utils/fileUtils';
 import {
   FaBuilding,
   FaLayerGroup,

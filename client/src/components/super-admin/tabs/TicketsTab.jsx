@@ -69,7 +69,19 @@ const TicketsTab = () => {
 
       // Fetch companies
       const companiesResponse = await axios.get(`${API_URL}/companies?limit=100`, config);
-      const companiesData = companiesResponse.data.companies || companiesResponse.data || [];
+      console.log('Companies API response:', companiesResponse.data);
+      
+      // Extract companies array from the response
+      let companiesData = [];
+      if (companiesResponse.data && companiesResponse.data.success && companiesResponse.data.companies) {
+        companiesData = companiesResponse.data.companies;
+      } else if (Array.isArray(companiesResponse.data)) {
+        companiesData = companiesResponse.data;
+      } else if (companiesResponse.data && companiesResponse.data.data) {
+        companiesData = companiesResponse.data.data;
+      }
+      
+      console.log('Extracted companies:', companiesData);
       setCompanies(Array.isArray(companiesData) ? companiesData : []);
 
       // Fetch departments
@@ -84,6 +96,7 @@ const TicketsTab = () => {
         departmentsData = departmentsResponse.data.data;
       }
       
+      console.log('Fetched departments:', departmentsData);
       setDepartments(departmentsData);
 
       // Calculate stats
@@ -108,6 +121,7 @@ const TicketsTab = () => {
 
   // Fetch users by company
   const fetchCompanyUsers = async (companyId) => {
+    console.log('Fetching users for company:', companyId);
     if (!companyId) {
       setCompanyUsers([]);
       return;
@@ -120,8 +134,21 @@ const TicketsTab = () => {
       };
 
       const usersResponse = await axios.get(`${API_URL}/users?companyId=${companyId}`, config);
-      const usersData = usersResponse.data.users || usersResponse.data || [];
+      console.log('Users API response:', usersResponse.data);
+      
+      // Extract users from response
+      let usersData = [];
+      if (usersResponse.data && usersResponse.data.users) {
+        usersData = usersResponse.data.users;
+      } else if (Array.isArray(usersResponse.data)) {
+        usersData = usersResponse.data;
+      } else if (usersResponse.data && usersResponse.data.data) {
+        usersData = usersResponse.data.data;
+      }
+      
+      // Filter only regular users (not superadmins)
       const regularUsers = Array.isArray(usersData) ? usersData.filter(user => user.role === 'user') : [];
+      console.log('Filtered users:', regularUsers);
       setCompanyUsers(regularUsers);
 
     } catch (error) {
@@ -132,6 +159,7 @@ const TicketsTab = () => {
 
   // Fetch department categories
   const fetchDepartmentCategories = async (departmentId) => {
+    console.log('Fetching categories for department:', departmentId);
     if (!departmentId) {
       setDepartmentCategories([]);
       return;
@@ -143,14 +171,18 @@ const TicketsTab = () => {
         headers: { 'Authorization': `Bearer ${token}` } 
       };
 
+      // First try to get from already loaded departments
       const selectedDept = departments.find(dept => dept._id === departmentId);
       
       if (selectedDept && selectedDept.categories && Array.isArray(selectedDept.categories)) {
+        console.log('Categories from loaded departments:', selectedDept.categories);
         setDepartmentCategories(selectedDept.categories);
         return;
       }
 
+      // If not found, fetch from API
       const departmentResponse = await axios.get(`${API_URL}/departments/${departmentId}`, config);
+      console.log('Department detail response:', departmentResponse.data);
       
       let categories = [];
       if (departmentResponse.data && departmentResponse.data.categories) {
@@ -159,32 +191,14 @@ const TicketsTab = () => {
         categories = departmentResponse.data.data.categories;
       } else if (departmentResponse.data && departmentResponse.data.department && departmentResponse.data.department.categories) {
         categories = departmentResponse.data.department.categories;
-      } else if (departmentResponse.data && Array.isArray(departmentResponse.data)) {
-        categories = departmentResponse.data;
       }
       
-      setDepartmentCategories(Array.isArray(categories) ? categories : []);
+      const finalCategories = Array.isArray(categories) ? categories : [];
+      console.log('Final categories from API:', finalCategories);
+      setDepartmentCategories(finalCategories);
 
     } catch (error) {
       console.error('Error fetching department categories:', error);
-      setDepartmentCategories([]);
-    }
-  };
-
-  // Handle company change in create form
-  const handleCompanyChange = (companyId) => {
-    if (companyId) {
-      fetchCompanyUsers(companyId);
-    } else {
-      setCompanyUsers([]);
-    }
-  };
-
-  // Handle department change in create form
-  const handleDepartmentChange = (departmentId) => {
-    if (departmentId) {
-      fetchDepartmentCategories(departmentId);
-    } else {
       setDepartmentCategories([]);
     }
   };
@@ -228,16 +242,7 @@ const TicketsTab = () => {
     } catch (error) {
       console.error('Error creating ticket:', error);
       const errorMessage = error.response?.data?.message || error.message;
-      
-      if (errorMessage.includes('Department is required')) {
-        alert('ERROR: Department is required. Please select a department from the dropdown.');
-      } else if (errorMessage.includes('Title is required')) {
-        alert('ERROR: Title is required. Please enter a title for the ticket.');
-      } else if (errorMessage.includes('Description is required')) {
-        alert('ERROR: Description is required. Please enter a description for the ticket.');
-      } else {
-        alert(`Failed to create ticket: ${errorMessage}`);
-      }
+      alert(`Failed to create ticket: ${errorMessage}`);
     } finally {
       setUploading(false);
     }
@@ -395,10 +400,7 @@ const TicketsTab = () => {
       ticket.description?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesCompany = filters.company === 'all' || 
-      (ticket.company && ticket.company._id === filters.company) ||
-      ticket.createdBy?.companyName?.toLowerCase().includes(
-        companies.find(c => c._id === filters.company)?.name?.toLowerCase() || ''
-      );
+      (ticket.company && ticket.company._id === filters.company);
     
     const matchesDepartment = filters.department === 'all' || 
       (ticket.department && ticket.department._id === filters.department);
@@ -493,13 +495,19 @@ const TicketsTab = () => {
       {/* Create Ticket Modal */}
       <CreateTicketForm
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setCompanyUsers([]);
+          setDepartmentCategories([]);
+        }}
         onSubmit={handleCreateTicket}
         companies={companies}
         departments={departments}
         companyUsers={companyUsers}
         departmentCategories={departmentCategories}
         loading={uploading}
+        onCompanyChange={fetchCompanyUsers}
+        onDepartmentChange={fetchDepartmentCategories}
       />
 
       {/* Ticket Detail Modal */}
